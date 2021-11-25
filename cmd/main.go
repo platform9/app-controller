@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/platform9/fast-path/pkg/api"
+	"github.com/platform9/fast-path/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -72,4 +73,5 @@ func initCfg() {
 	if err := viper.ReadInConfig(); err != nil {
 		panic(err)
 	}
+	util.Kubeconfig = viper.GetString("kubeconfig.file")
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/platform9/fast-path/pkg/knative"
+	"github.com/platform9/fast-path/pkg/util"
 )
 
 // New returns new API router for fast-path
@@ -21,15 +22,11 @@ func New() *mux.Router {
 }
 
 
-const (
-	kubeconfig = "/home/ubuntu/kubeconfig/aws3.yaml"
-)
-
 func getApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	spaceName := vars["space"]
 
-	appList, err := knative.GetApps(kubeconfig, spaceName)
+	appList, err := knative.GetApps(util.Kubeconfig, spaceName)
 
 	if err != nil {
 		log.Error(err, "while listing app")
