@@ -51,6 +51,41 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 	return string(jsonAppList), nil
 }
 
+// Get app by name
+func GetAppByName(kubeconfig string, space string, appName string) (apps_list string, err error) {
+	// Initialize the knative parameters
+	knParams := &commands.KnParams{}
+	knParams.KubeCfgPath = kubeconfig
+	knParams.Initialize()
+
+	// Fetch the knative serving client for a given knative space
+	client, err := knParams.NewServingClient(space)
+	if err != nil {
+		log.Error(err, "Error while creating a knative serving client")
+		return "", err
+	}
+
+	// Create an empty context, required for knative APIs
+	ctx := context.Background()
+
+	// Call the knative API to get service by Name
+	appGetByName, err := client.GetService(ctx, appName)
+	if err != nil {
+		log.Error(err, "Error while listing app")
+		return "", err
+	}
+
+	// Encode the app info in json format
+	jsonApp, err := json.Marshal(appGetByName)
+	if err != nil {
+		log.Error(err, "Error while json marshalling the app")
+		return "", err
+	}
+
+	return string(jsonApp), nil
+}
+
+
 
 func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
 	if len(spec.Containers) == 0 {

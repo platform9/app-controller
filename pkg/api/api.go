@@ -1,13 +1,14 @@
 package api
 
 import (
-	"net/http"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"encoding/json"
+	"net/http"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+
 	//"knative.dev/client/pkg/kn/commands/service"
 	"github.com/platform9/fast-path/pkg/knative"
 	"github.com/platform9/fast-path/pkg/util"
@@ -17,15 +18,15 @@ import (
 func New() *mux.Router {
 	r := mux.NewRouter()
 	/*
-	//Add Authentication methods here when applicable
-	if options.IsAuthEnabled() {
-	}
+		//Add Authentication methods here when applicable
+		if options.IsAuthEnabled() {
+		}
 	*/
 	r.HandleFunc("/v1/apps/{space}", getApp).Methods("GET")
+	r.HandleFunc("/v1/apps/{space}/{name}", getAppByName).Methods("GET")
 	r.HandleFunc("/v1/apps", createApp).Methods("POST")
 	return r
 }
-
 
 func getApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -53,7 +54,7 @@ type App struct {
 }
 
 func createApp(w http.ResponseWriter, r *http.Request) {
-        vars := mux.Vars(r)
+	vars := mux.Vars(r)
 	fmt.Printf("vars : %v\n", vars)
 
 	app := App{}
@@ -79,4 +80,24 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func getAppByName(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	space := vars["space"]
+	appName := vars["name"]
+
+	appList, err := knative.GetAppByName(util.Kubeconfig, space, appName)
+
+	if err != nil {
+		log.Error(err, "while listing app")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	data := []byte(appList)
+	w.WriteHeader(http.StatusOK)
+	if _, err = w.Write(data); err != nil {
+		log.Error(err, "while responding over http")
+	}
 }
