@@ -84,10 +84,10 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 
 func getAppByName(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	spaceName := vars["space"]
+	space := vars["space"]
 	appName := vars["name"]
 
-	appList, err := knative.GetAppByName(util.Kubeconfig, spaceName, appName)
+	appList, err := knative.GetAppByName(util.Kubeconfig, space, appName)
 
 	if err != nil {
 		log.Error(err, "while listing app")
