@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"knative.dev/client/pkg/kn/commands"
-//	"knative.dev/client/pkg/kn/commands/service"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	servinglib "knative.dev/client/pkg/serving"
-	clientservingv1 "knative.dev/client/pkg/serving/v1"
-        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	//	"knative.dev/client/pkg/kn/commands/service"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	servinglib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func GetApps(kubeconfig string, space string) (apps_list string, err error) {
@@ -39,14 +40,12 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 		return "", err
 	}
 
-
 	// Encode the apps list in json format
-	jsonAppList, err:= json.Marshal(appsList)
-        if err != nil {
-                log.Error(err, "Error while json marshalling the apps list")
-                return "", err
-        }
-
+	jsonAppList, err := json.Marshal(appsList)
+	if err != nil {
+		log.Error(err, "Error while json marshalling the apps list")
+		return "", err
+	}
 
 	return string(jsonAppList), nil
 }
@@ -85,8 +84,6 @@ func GetAppByName(kubeconfig string, space string, appName string) (apps_list st
 	return string(jsonApp), nil
 }
 
-
-
 func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
 	if len(spec.Containers) == 0 {
 		newContainer := corev1.Container{}
@@ -95,11 +92,10 @@ func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
 	return &spec.Containers[0]
 }
 
-
 func constructService(
-        name string,
-        namespace string,
-        image string) (service servingv1.Service, err error) {
+	name string,
+	namespace string,
+	image string) (service servingv1.Service, err error) {
 
 	service = servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,12 +114,11 @@ func constructService(
 	}
 	service.Spec.Template.Spec.Containers = []corev1.Container{{}}
 	template := &service.Spec.Template
-	container:= containerOfPodSpec(&template.Spec.PodSpec)
+	container := containerOfPodSpec(&template.Spec.PodSpec)
 	container.Image = image
 
 	return service, nil
 }
-
 
 func serviceExists(ctx context.Context, client clientservingv1.KnServingClient, name string) (bool, error) {
 	_, err := client.GetService(ctx, name)
@@ -135,7 +130,6 @@ func serviceExists(ctx context.Context, client clientservingv1.KnServingClient, 
 	}
 	return true, nil
 }
-
 
 func createAppKnative(
 	ctx context.Context,
@@ -155,20 +149,20 @@ func CreateApp(
 	space string,
 	image string) (err error) {
 
-        // Initialize the knative parameters
-        knParams := &commands.KnParams{}
-        knParams.KubeCfgPath = kubeconfig
-        knParams.Initialize()
+	// Initialize the knative parameters
+	knParams := &commands.KnParams{}
+	knParams.KubeCfgPath = kubeconfig
+	knParams.Initialize()
 
-        // Fetch the knative serving client for a given knative space
-        client, err := knParams.NewServingClient(space)
-        if err != nil {
-                log.Error(err, "Error while creating a knative serving client")
-                return err
-        }
+	// Fetch the knative serving client for a given knative space
+	client, err := knParams.NewServingClient(space)
+	if err != nil {
+		log.Error(err, "Error while creating a knative serving client")
+		return err
+	}
 
-        // Create an empty context, required for knative APIs
-        ctx := context.Background()
+	// Create an empty context, required for knative APIs
+	ctx := context.Background()
 
 	service, err := constructService(appName, space, image)
 	if err != nil {
@@ -193,6 +187,36 @@ func CreateApp(
 		return err
 	}
 
+	return nil
+}
+
+// Delete an app by name
+func DeleteApp(kubeconfig string, space string, appName string) error {
+	// Initialize the knative parameters
+	knParams := &commands.KnParams{}
+	knParams.KubeCfgPath = kubeconfig
+	knParams.Initialize()
+
+	// Fetch the knative serving client for a given knative space
+	client, err := knParams.NewServingClient(space)
+	if err != nil {
+		log.Error(err, "Error while creating a knative serving client")
+		return err
+	}
+
+	// Create an empty context, required for knative APIs
+	ctx := context.Background()
+	/* To delete service without any wait.
+	timeout -- duration to wait for a delete operation to finish.
+	*/
+	var timeout = time.Duration(0)
+
+	// Call the knative API to delete service by Name
+	errdelete := client.DeleteService(ctx, appName, timeout)
+	if errdelete != nil {
+		log.Error(errdelete, "Error while deleting app")
+		return err
+	}
 
 	return nil
 }
