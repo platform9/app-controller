@@ -25,6 +25,8 @@ func New() *mux.Router {
 	r.HandleFunc("/v1/apps/{space}", getApp).Methods("GET")
 	r.HandleFunc("/v1/apps/{space}/{name}", getAppByName).Methods("GET")
 	r.HandleFunc("/v1/apps", createApp).Methods("POST")
+	r.HandleFunc("/v1/apps/{space}/{name}", deleteApp).Methods("DELETE")
+
 	return r
 }
 
@@ -77,7 +79,6 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		log.Error(err, "while creating app")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -100,4 +101,22 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 	if _, err = w.Write(data); err != nil {
 		log.Error(err, "while responding over http")
 	}
+}
+
+func deleteApp(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	deleteAppSpace := vars["space"]
+	deleteAppName := vars["name"]
+
+	fmt.Printf("vars : %v\n", vars)
+
+	fmt.Printf("Name: %s, space: %s", deleteAppName, deleteAppSpace)
+
+	errdel := knative.DeleteApp(util.Kubeconfig, deleteAppSpace, deleteAppName)
+	if errdel != nil {
+		log.Error(errdel, "while deleting app")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
