@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/platform9/fast-path/pkg/api"
+	"github.com/platform9/fast-path/pkg/db"
 	"github.com/platform9/fast-path/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -64,6 +65,19 @@ func buildCmds() *cobra.Command {
 		Long:  "fast-path is a service to interact knative kubernetes clusters",
 		Run:   run,
 	}
+
+	migrateCmd := &cobra.Command{
+		Use:   "migrate",
+		Short: "migrate initializes and upgrades database",
+		Long:  "migrate initializes and upgrades database",
+		Run: func(cmd *cobra.Command, args []string) {
+			dbHandle := db.Get()
+			if err := dbHandle.Migrate(); err != nil {
+				panic(err)
+			}
+		},
+	}
+	rootCmd.AddCommand(migrateCmd)
 
 	return rootCmd
 }
