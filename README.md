@@ -26,7 +26,17 @@ kubeconfig:
   file: "/home/ubuntu/kubeconfig/aws3.yaml"
 ```
 
+### For DB Schema changes or first time builds
 
+```
+$ go get -u 'github.com/jteeuwen/go-bindata/...'
+$ export PATH=${PATH}:${GOPATH}/bin
+$ cd pkg/db; go generate; cd -
+$ make build
+$ ./bin/fast-path
+
+This will be merged in Makefile in future.
+```
 ### API test
 
 #### GET all apps in default namespace
