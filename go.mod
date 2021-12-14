@@ -9,11 +9,11 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.9 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.1
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0 // indirect
 	k8s.io/api v0.21.4 // indirect
 	k8s.io/apimachinery v0.21.4 // indirect
+	k8s.io/client-go v0.21.4
 	knative.dev/client v0.27.0
-	knative.dev/serving v0.27.0 // indirect
+	knative.dev/serving v0.27.0
 )
