@@ -9,71 +9,74 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 
-	//"knative.dev/client/pkg/kn/commands/service"
+	"github.com/platform9/fast-path/pkg/db"
 	"github.com/platform9/fast-path/pkg/knative"
+	"github.com/platform9/fast-path/pkg/objects"
 	"github.com/platform9/fast-path/pkg/util"
 
 	"context"
 
+	"github.com/mitchellh/mapstructure"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	b64 "encoding/base64"
 )
 
-type DB struct {
-	Name      string
-	Email     string
-	NameSpace string
-	NickName  string
-	//TokenExp  float64
+type UserInfo struct {
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	NickName string  `json:"nickname"`
+	Aud      string  `json:"aud"`
+	Sub      string  `json:"sub"`
+	Exp      float64 `json:"exp"`
 }
-
-type Header struct {
-	Algorithm     string `json:"alg"`
-	TokenType     string `json:"typ"`
-	KeyIdentifier string `json:"kid"`
-}
-type Payload struct {
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Issuer    string    `json:"iss"`
-	SubIssuer string    `json:"sub"`
-	Audience  string    `json:"aud"`
-	IssuedAt  time.Time `json:"iat"`
-	ExpiresAt time.Time `json:"exp"`
-}
-
-var LocalDB []DB
 
 // New returns new API router for fast-path
 func New() *mux.Router {
 	r := mux.NewRouter()
-	/*
-		//Add Authentication methods here when applicable
-		if options.IsAuthEnabled() {
-		}
-	*/
-
-	r.HandleFunc("/v1/apps/{space}", getApp).Methods("GET")
-	r.HandleFunc("/v1/apps/{space}/{name}", getAppByName).Methods("GET")
+	r.HandleFunc("/v1/apps", getApp).Methods("GET")
+	r.HandleFunc("/v1/apps/{name}", getAppByName).Methods("GET")
 	r.HandleFunc("/v1/apps", createApp).Methods("POST")
 	r.HandleFunc("/v1/apps/login", loginApp).Methods("POST")
-	r.HandleFunc("/v1/apps/{space}/{name}", deleteApp).Methods("DELETE")
+	r.HandleFunc("/v1/apps/{name}", deleteApp).Methods("DELETE")
 
 	return r
 }
 
 func getApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	spaceName := vars["space"]
 
-	appList, err := knative.GetApps(util.Kubeconfig, spaceName)
+	// Fetch the token.
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	reqToken = splitToken[1]
+
+	//Fetch UserInfo from token
+	userInfo, err := GetUserInfo(reqToken)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Check if token is expired.
+	if CheckTokenExpired(userInfo.Exp) {
+		fmt.Printf("Token is expired\n")
+		return
+	}
+
+	//Get Namespace from DB
+	nameSpace, err := GetNamespace(*userInfo)
+	if err != nil {
+		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		return
+	}
+
+	appList, err := knative.GetApps(util.Kubeconfig, nameSpace)
 
 	if err != nil {
 		log.Error(err, "while listing app")
@@ -90,7 +93,6 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 
 type App struct {
 	Name  string `json:"name"`
-	Space string `json:"space"`
 	Image string `json:"image"`
 }
 
@@ -119,9 +121,34 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Name: %s, space: %s, image: %s\n", app.Name, app.Space, app.Image)
+	// Fetch the token.
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	reqToken = splitToken[1]
 
-	err = knative.CreateApp(util.Kubeconfig, app.Name, app.Space, app.Image)
+	//Fetch UserInfo from token
+	userInfo, err := GetUserInfo(reqToken)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Check if token is expired.
+	if CheckTokenExpired(userInfo.Exp) {
+		fmt.Printf("Token is expired\n")
+		return
+	}
+
+	//Get Namespace from DB
+	nameSpace, err := GetNamespace(*userInfo)
+	if err != nil {
+		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		return
+	}
+
+	fmt.Printf("Name: %s, space: %s, image: %s\n", app.Name, nameSpace, app.Image)
+
+	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image)
 	if err != nil {
 		log.Error(err, "while creating app")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -132,10 +159,34 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 
 func getAppByName(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	space := vars["space"]
 	appName := vars["name"]
 
-	appList, err := knative.GetAppByName(util.Kubeconfig, space, appName)
+	// Fetch the token.
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	reqToken = splitToken[1]
+
+	//Fetch UserInfo from token
+	userInfo, err := GetUserInfo(reqToken)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Check if token is expired.
+	if CheckTokenExpired(userInfo.Exp) {
+		fmt.Printf("Token is expired\n")
+		return
+	}
+
+	//Get Namespace from DB
+	nameSpace, err := GetNamespace(*userInfo)
+	if err != nil {
+		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		return
+	}
+
+	appList, err := knative.GetAppByName(util.Kubeconfig, nameSpace, appName)
 
 	if err != nil {
 		log.Error(err, "while listing app")
@@ -152,14 +203,38 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 
 func deleteApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	deleteAppSpace := vars["space"]
 	deleteAppName := vars["name"]
+
+	// Fetch the token.
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	reqToken = splitToken[1]
+
+	//Fetch UserInfo from token
+	userInfo, err := GetUserInfo(reqToken)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Check if token is expired.
+	if CheckTokenExpired(userInfo.Exp) {
+		fmt.Printf("Token is expired\n")
+		return
+	}
+
+	//Get Namespace from DB
+	nameSpace, err := GetNamespace(*userInfo)
+	if err != nil {
+		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		return
+	}
 
 	fmt.Printf("vars : %v\n", vars)
 
-	fmt.Printf("Name: %s, space: %s", deleteAppName, deleteAppSpace)
+	fmt.Printf("Name: %s, space: %s", deleteAppName, nameSpace)
 
-	errdel := knative.DeleteApp(util.Kubeconfig, deleteAppSpace, deleteAppName)
+	errdel := knative.DeleteApp(util.Kubeconfig, nameSpace, deleteAppName)
 	if errdel != nil {
 		log.Error(errdel, "while deleting app")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -168,157 +243,206 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/*
+1. Obtain token from header.
+2. GetUserInfo after validating the token signature.
+3. Check if user exists in DB.
+	4. If exists then check expiry and do necessary action if exipred.
+	5. Else, create a userNamespace and update the DB.
+*/
 func loginApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	fmt.Printf("vars : %v\n", vars)
 
 	// Fetch the token.
 	reqToken := r.Header.Get("Authorization")
 	splitToken := strings.Split(reqToken, "Bearer ")
 	reqToken = splitToken[1]
 
-	fmt.Printf("The token is %v\n\n", reqToken)
-
-	//Validate the token and decode it and get userinfo.
-	//ValidateToken(reqToken)
-	header, payload, err := DecodeToken(reqToken)
+	userInfo, err := GetUserInfo(reqToken)
 	if err != nil {
-		fmt.Printf("Faield to decode the token\n")
+		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	name := fmt.Sprintf("%v", payload["name"])
-	email := fmt.Sprintf("%v", payload["email"])
-	aud := fmt.Sprintf("%v", payload["aud"])
-	nickname := fmt.Sprintf("%v", payload["nickname"])
-	sub := fmt.Sprintf("%v", payload["sub"])
 
-	// Doing simple validation i.e if audiance == auth0 clientID
-	if aud == util.ClientId {
-		fmt.Printf("Its valid token\n")
-	}
+	//Database User object.
+	var userDB objects.User
+	que := db.Get()
 
-	fmt.Printf("The token decoded is header: %v, payload %v\n\n", header, payload)
-
-	// If user exists in DB, then check if its new expiry.
-	var UserExists bool
-	for _, val := range LocalDB {
-
-		if val.Email == email {
-			UserExists = true
-			/*if val.TokenExp != payload["exp"] {
-				//LocalDB[key].TokenExp =
-			}*/
+	// Check if user exists in DB.
+	var UserExists bool = false
+	if strings.Contains(userInfo.Sub, "github") {
+		errDB := que.GetUserByName(userInfo.NickName, &userDB)
+		if errDB != nil {
+			fmt.Printf("DB Error: %v\n", errDB)
 		}
-		// For Github case
-		if val.NickName == nickname {
+		if userDB.Name == userInfo.NickName {
+			UserExists = true
+		}
+	} else {
+		errDB := que.GetUserByEmail(userInfo.Email, &userDB)
+		if errDB != nil {
+			fmt.Printf("Get user info from DB. Error: %v\n", errDB)
+		}
+		if userDB.Email == userInfo.Email {
 			UserExists = true
 		}
 	}
-	var nameSpace string
+
+	var NameSpace string
 	if !UserExists {
 
-		if strings.Contains(sub, "github") {
-			nameSpace = nickname + "Random 6 digit code"
+		if strings.Contains(userInfo.Sub, "github") {
+			NameSpace = userInfo.NickName + CreateRandomCode(6)
 		} else {
-			nameSpace = strings.Split(email, "@")[0] + "Random 6 digit code."
+			NameSpace = strings.Split(userInfo.Email, "@")[0] + CreateRandomCode(6)
 		}
 
 		// Check if namespace is valid. bcz only regex valid "^*[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-		if util.RegexValidate(nameSpace) {
-			fmt.Printf("Valid Namespace")
+		if util.RegexValidate(NameSpace) {
+			fmt.Printf("Its a Valid Namespace\n")
 		} else {
-			// Have to create a unique namespace name.
+			//Create a random proper namespace -- To be added.
 		}
 
-		// Fetch the details and check for namespace.
 		// Create new namespace.
-		errNamespace := CreateNamespace(nameSpace)
+		errNamespace := CreateNamespace(NameSpace)
 		if errNamespace != nil {
-			fmt.Printf("Failed to create a namespace with name %v\n", nameSpace)
+			fmt.Printf("Failed to create a namespace with name %v\n", NameSpace)
 			return
 		}
 
-		fmt.Printf("Successfully created namespace %v\n", nameSpace)
+		fmt.Printf("Successfully created namespace\n")
 
 		// Add Userinfo to DB.
-		LocalDB = append(LocalDB, DB{Name: name, Email: email, NameSpace: nameSpace, NickName: nickname})
-		fmt.Printf("The local database is %v\n", LocalDB)
+		var user objects.User
+		user.Name = userInfo.NickName
+		user.Email = userInfo.Email
+		user.Space = NameSpace
+
+		errDB := que.AddUser(&user)
+		if err != nil {
+			fmt.Printf("Adding Info to DB. Error: %v\n", errDB)
+		}
+	} else {
+		// User already exists in DB, then check expiry of token.
+		expiryTime := time.Unix(int64(userInfo.Exp), 0)
+		if expiryTime.Before(time.Now()) {
+			fmt.Printf("Login expired. Please login again using command `appctl login`\n")
+		}
 	}
-
 	w.WriteHeader(http.StatusOK)
-}
-
-// To validate given token.
-func ValidateToken(token string) {
-	// Logic to be implemented.
 }
 
 func CreateNamespace(nameSpace string) error {
 	config, err := clientcmd.BuildConfigFromFlags("", util.Kubeconfig)
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		fmt.Printf("Error building config: %v", err)
 		return err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		fmt.Printf("Error creating kubernetes config: %v", err)
 		return err
 	}
 	// Check if the creating namespace already exist.
 	ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		fmt.Printf("Cant list namespaces ")
+		fmt.Printf("Can't list namespaces\n")
 		return err
 	}
 
 	for _, val := range (*ns).Items {
 		if val.Name == nameSpace {
-			fmt.Printf("Namespace found")
-			nameSpace = nameSpace + string(rand.Intn(10))
+			nameSpace = nameSpace + CreateRandomCode(2)
+			fmt.Printf("Namespace already exists. Generating new namespace: %v\n", nameSpace)
 		}
 	}
-	// Create a new Namespace for first time login user.
+	// Namespace metaobject.
 	nsName := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nameSpace,
 		},
 	}
-
+	//Create a namespace.
 	_, errCreate := clientset.CoreV1().Namespaces().Create(context.Background(), nsName, metav1.CreateOptions{})
 	if errCreate != nil {
-		fmt.Printf("Failed to create a new namespace %v", nameSpace)
+		fmt.Printf("Failed to create a new namespace %v\n", nameSpace)
 		return errCreate
 	}
 	return nil
 }
 
-// Simple Decode Token.
-func DecodeToken(token string) (map[string]interface{}, map[string]interface{}, error) {
-	rawHeader := strings.Split(token, ".")[0]
-	rawPayload := strings.Split(token, ".")[1]
-
-	decodedHeader, _ := b64.StdEncoding.DecodeString(rawHeader)
-	decodedPayload, _ := b64.StdEncoding.DecodeString(rawPayload)
-
-	fmt.Printf("Decoded Header: %s\nDecoded Payload:%s", decodedHeader, decodedPayload)
-
-	var headerStruct map[string]interface{}
-	var payloadStruct map[string]interface{}
-
-	errHead := json.Unmarshal(decodedHeader, &headerStruct)
-	if errHead != nil {
-		return nil, nil, errHead
+// Get the namespace for user, from DB.
+func GetNamespace(userInfo UserInfo) (string, error) {
+	//Database User object.
+	var userDB objects.User
+	que := db.Get()
+	if strings.Contains(userInfo.Sub, "github") {
+		errDB := que.GetUserByName(userInfo.NickName, &userDB)
+		if errDB != nil {
+			fmt.Printf("DB Error: %v\n", errDB)
+			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
+		}
+		if userDB.Space != "" {
+			return userDB.Space, nil
+		}
+	} else {
+		errDB := que.GetUserByEmail(userInfo.Email, &userDB)
+		if errDB != nil {
+			fmt.Printf("Get user info from DB. Error: %v\n", errDB)
+			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
+		}
+		if userDB.Space != "" {
+			return userDB.Space, nil
+		}
 	}
-
-	errPay := json.Unmarshal([]byte(string(decodedPayload)+"}"), &payloadStruct)
-	if errPay != nil {
-		return nil, nil, errPay
-	}
-
-	return headerStruct, payloadStruct, nil
+	return "", fmt.Errorf("Failed to get Namespace")
 }
 
-// Check if username - namespace map exist in DB.
-func NamespaceExist(nameSpace string) (bool, error) {
-	return false, nil
+func GetUserInfo(token string) (*UserInfo, error) {
+
+	//Validate the token and decode it and get userinfo.
+	//ValidateTokenSignature(token) -- To be implemented.
+	// Fetch claims with out validation.
+	tokens, err := jwt.Parse(token, nil)
+	if tokens == nil {
+		fmt.Printf("Empty with error :%v", err)
+	}
+
+	claims, _ := tokens.Claims.(jwt.MapClaims)
+
+	// Doing simple validation i.e if audiance == auth0 clientID
+	if claims["aud"] != util.ClientId {
+		return &UserInfo{}, fmt.Errorf("Token is invalid")
+	}
+
+	var user UserInfo
+	errStru := mapstructure.Decode(claims, &user)
+	if errStru != nil {
+		fmt.Printf("Failed to convert map to struct\n")
+	}
+
+	fmt.Printf("The User info is %+v", user)
+	return &user, nil
+}
+
+func CreateRandomCode(lenCode int) string {
+	var letter = []rune(util.AllCharSet)
+
+	rand.Seed(time.Now().UnixNano())
+	code := make([]rune, lenCode)
+	for i := range code {
+		code[i] = letter[rand.Intn(len(letter))]
+	}
+	return string(code)
+}
+
+// Check if token is expired or not.
+func CheckTokenExpired(expiry float64) bool {
+	// User already exists in DB.
+	expiryTime := time.Unix(int64(expiry), 0)
+	if expiryTime.Before(time.Now()) {
+		fmt.Printf("Login expired. Please login again using command `appctl login`\n")
+		return true
+	}
+	return false
 }

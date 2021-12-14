@@ -16,9 +16,8 @@ var (
 
 const (
 	lowerCharSet = "abcdedfghijklmnopqrst"
-	upperCharSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	numberSet    = "0123456789"
-	allCharSet   = lowerCharSet + upperCharSet + numberSet
+	AllCharSet   = lowerCharSet + numberSet
 )
 
 // Validate a regex.
