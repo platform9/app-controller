@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -300,7 +301,16 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 		if util.RegexValidate(NameSpace) {
 			fmt.Printf("Its a Valid Namespace\n")
 		} else {
-			//Create a random proper namespace -- To be added.
+			/* If namespace is invalid:
+			1. Remove all special characters other than [a-zA-Z0-9] from namespace.
+			2. Convert if any uppercase characters exists in string to lowercase.
+			*/
+			fmt.Printf("Namespace given is not valid, so formating as per valid regex.\n")
+			NameSpace, err = RemoveSpecialChars(NameSpace)
+			if err != nil {
+				fmt.Printf("Notable to remove special characters from given string. Error: %v", err)
+			}
+			NameSpace = NameSpace + CreateRandomCode(6)
 		}
 
 		// Create new namespace.
@@ -445,4 +455,14 @@ func CheckTokenExpired(expiry float64) bool {
 		return true
 	}
 	return false
+}
+
+// Remove all special characters and convert to lowercase alphanumeric string.
+func RemoveSpecialChars(specialChar string) (string, error) {
+	regex, err := regexp.Compile(util.NoSpecialChar)
+	if err != nil {
+		return "", fmt.Errorf("%v\n", err)
+	}
+	formattedString := regex.ReplaceAllString(specialChar, "")
+	return strings.ToLower(formattedString), nil
 }
