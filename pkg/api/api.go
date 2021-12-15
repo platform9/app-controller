@@ -16,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/platform9/fast-path/pkg/db"
+	corev1 "k8s.io/api/core/v1"
 	"github.com/platform9/fast-path/pkg/knative"
 	"github.com/platform9/fast-path/pkg/objects"
 	"github.com/platform9/fast-path/pkg/util"
@@ -86,6 +87,10 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 type App struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
+	Envs  []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"envs"`
 }
 
 /*
@@ -97,9 +102,6 @@ type App struct {
 */
 
 func createApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	fmt.Printf("vars : %v\n", vars)
-
 	app := App{}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -129,9 +131,15 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Name: %s, space: %s, image: %s\n", app.Name, nameSpace, app.Image)
+	envVars := []corev1.EnvVar{}
+	envVar := corev1.EnvVar{}
+	for _, env := range app.Envs {
+		envVar.Name = env.Key
+		envVar.Value = env.Value
+		envVars = append(envVars, envVar)
+	}
 
-	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image)
+	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars)
 	if err != nil {
 		log.Error(err, "while creating app")
 		w.WriteHeader(http.StatusInternalServerError)

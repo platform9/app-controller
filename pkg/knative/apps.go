@@ -95,7 +95,8 @@ func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
 func constructService(
 	name string,
 	namespace string,
-	image string) (service servingv1.Service, err error) {
+	image string,
+	env []corev1.EnvVar) (service servingv1.Service, err error) {
 
 	service = servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +117,7 @@ func constructService(
 	template := &service.Spec.Template
 	container := containerOfPodSpec(&template.Spec.PodSpec)
 	container.Image = image
-
+	container.Env = env
 	return service, nil
 }
 
@@ -147,7 +148,8 @@ func CreateApp(
 	kubeconfig string,
 	appName string,
 	space string,
-	image string) (err error) {
+	image string,
+	env []corev1.EnvVar) (err error) {
 
 	// Initialize the knative parameters
 	knParams := &commands.KnParams{}
@@ -164,7 +166,7 @@ func CreateApp(
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	service, err := constructService(appName, space, image)
+	service, err := constructService(appName, space, image, env)
 	if err != nil {
 		log.Error(err, "Error while creating the service object")
 		return err
