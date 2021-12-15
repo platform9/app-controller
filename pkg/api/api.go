@@ -52,28 +52,19 @@ func New() *mux.Router {
 
 func getApp(w http.ResponseWriter, r *http.Request) {
 
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
+	// Validate a token, and get user claims.
+	userInfo, validToken, expired, err := ValidateToken(r)
 
-	//Fetch UserInfo from token
-	userInfo, err := GetUserInfo(reqToken)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	// Check if token is expired.
-	if CheckTokenExpired(userInfo.Exp) {
-		fmt.Printf("Token is expired\n")
+	// Continue only if token is valid, token is not expired and no error occured while validating token.
+	if !(validToken && !expired && err == nil) {
+		fmt.Printf("Token Validation Error: %v\n", err)
 		return
 	}
 
 	//Get Namespace from DB
 	nameSpace, err := GetNamespace(*userInfo)
 	if err != nil {
-		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		fmt.Printf("Failed to get Namespace. Error: %v\n", err)
 		return
 	}
 
@@ -122,21 +113,12 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
+	// Validate a token, and get user claims.
+	userInfo, validToken, expired, err := ValidateToken(r)
 
-	//Fetch UserInfo from token
-	userInfo, err := GetUserInfo(reqToken)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	// Check if token is expired.
-	if CheckTokenExpired(userInfo.Exp) {
-		fmt.Printf("Token is expired\n")
+	// Continue only if token is valid, token is not expired and no error occured while validating token.
+	if !(validToken && !expired && err == nil) {
+		fmt.Printf("Token Validation Error: %v\n", err)
 		return
 	}
 
@@ -162,21 +144,12 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appName := vars["name"]
 
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
+	// Validate a token, and get user claims.
+	userInfo, validToken, expired, err := ValidateToken(r)
 
-	//Fetch UserInfo from token
-	userInfo, err := GetUserInfo(reqToken)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	// Check if token is expired.
-	if CheckTokenExpired(userInfo.Exp) {
-		fmt.Printf("Token is expired\n")
+	// Continue only if token is valid, token is not expired and no error occured while validating token.
+	if !(validToken && !expired && err == nil) {
+		fmt.Printf("Token Validation Error: %v\n", err)
 		return
 	}
 
@@ -206,21 +179,12 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	deleteAppName := vars["name"]
 
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
+	// Validate a token, and get user claims.
+	userInfo, validToken, expired, err := ValidateToken(r)
 
-	//Fetch UserInfo from token
-	userInfo, err := GetUserInfo(reqToken)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	// Check if token is expired.
-	if CheckTokenExpired(userInfo.Exp) {
-		fmt.Printf("Token is expired\n")
+	// Continue only if token is valid, token is not expired and no error occured while validating token.
+	if !(validToken && !expired && err == nil) {
+		fmt.Printf("Token Validation Error: %v\n", err)
 		return
 	}
 
@@ -253,14 +217,12 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 */
 func loginApp(w http.ResponseWriter, r *http.Request) {
 
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
+	// Validate a token, and get user claims.
+	userInfo, validToken, expired, err := ValidateToken(r)
 
-	userInfo, err := GetUserInfo(reqToken)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+	// Continue only if token is valid, token is not expired and no error occured while validating token.
+	if !(validToken && !expired && err == nil) {
+		fmt.Printf("Token Validation Error: %v\n", err)
 		return
 	}
 
@@ -353,25 +315,21 @@ func CreateNamespace(nameSpace string) error {
 		fmt.Printf("Error creating kubernetes config: %v", err)
 		return err
 	}
+
 	// Check if the creating namespace already exist.
-	ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		fmt.Printf("Can't list namespaces\n")
-		return err
+	_, errGetNs := clientset.CoreV1().Namespaces().Get(context.TODO(), nameSpace, metav1.GetOptions{})
+	if errGetNs == nil {
+		nameSpace = nameSpace + CreateRandomCode(4)
+		fmt.Printf("Namespace already exists. Generating new namespace: %v\n", nameSpace)
 	}
 
-	for _, val := range (*ns).Items {
-		if val.Name == nameSpace {
-			nameSpace = nameSpace + CreateRandomCode(2)
-			fmt.Printf("Namespace already exists. Generating new namespace: %v\n", nameSpace)
-		}
-	}
 	// Namespace metaobject.
 	nsName := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nameSpace,
 		},
 	}
+
 	//Create a namespace.
 	_, errCreate := clientset.CoreV1().Namespaces().Create(context.Background(), nsName, metav1.CreateOptions{})
 	if errCreate != nil {
@@ -408,33 +366,6 @@ func GetNamespace(userInfo UserInfo) (string, error) {
 	return "", fmt.Errorf("Failed to get Namespace")
 }
 
-func GetUserInfo(token string) (*UserInfo, error) {
-
-	//Validate the token and decode it and get userinfo.
-	//ValidateTokenSignature(token) -- To be implemented.
-	// Fetch claims with out validation.
-	tokens, err := jwt.Parse(token, nil)
-	if tokens == nil {
-		fmt.Printf("Empty with error :%v", err)
-	}
-
-	claims, _ := tokens.Claims.(jwt.MapClaims)
-
-	// Doing simple validation i.e if audiance == auth0 clientID
-	if claims["aud"] != util.ClientId {
-		return &UserInfo{}, fmt.Errorf("Token is invalid")
-	}
-
-	var user UserInfo
-	errStru := mapstructure.Decode(claims, &user)
-	if errStru != nil {
-		fmt.Printf("Failed to convert map to struct\n")
-	}
-
-	fmt.Printf("The User info is %+v", user)
-	return &user, nil
-}
-
 func CreateRandomCode(lenCode int) string {
 	var letter = []rune(util.AllCharSet)
 
@@ -465,4 +396,47 @@ func RemoveSpecialChars(specialChar string) (string, error) {
 	}
 	formattedString := regex.ReplaceAllString(specialChar, "")
 	return strings.ToLower(formattedString), nil
+}
+
+// Validate token, check if token is expired or not and return user claims as userInfo.
+func ValidateToken(r *http.Request) (*UserInfo, bool, bool, error) {
+
+	// Fetch the token.
+	reqToken := r.Header.Get("Authorization")
+	splitToken := strings.Split(reqToken, "Bearer ")
+	reqToken = splitToken[1]
+
+	// Parse the token.
+	tokens, err := jwt.Parse(reqToken, nil)
+	if tokens == nil {
+		fmt.Printf("Empty with error :%v", err)
+	}
+
+	//Fetch Claims
+	claims, _ := tokens.Claims.(jwt.MapClaims)
+
+	// Doing simple additional validation i.e if audiance == auth0 clientID
+	if claims["aud"] != util.ClientId {
+		return &UserInfo{}, false, false, fmt.Errorf("Token is invalid")
+	}
+
+	if expiry, ok := claims["exp"].(float64); ok {
+		// Check if token is expired.
+		if CheckTokenExpired(expiry) {
+			fmt.Printf("Token is expired\n")
+			return &UserInfo{}, true, true, fmt.Errorf("Token is Expired\n")
+		}
+	} else {
+		return &UserInfo{}, true, false, fmt.Errorf("Can't fetch token expiryAt time.\n")
+	}
+
+	var user UserInfo
+	errStru := mapstructure.Decode(claims, &user)
+	if errStru != nil {
+		fmt.Printf("Failed to convert map to struct\n")
+		return &UserInfo{}, true, false, fmt.Errorf("%v", errStru)
+	}
+
+	fmt.Printf("The User info is %+v\n", user)
+	return &user, true, false, nil
 }
