@@ -16,10 +16,10 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/platform9/fast-path/pkg/db"
-	corev1 "k8s.io/api/core/v1"
 	"github.com/platform9/fast-path/pkg/knative"
 	"github.com/platform9/fast-path/pkg/objects"
 	"github.com/platform9/fast-path/pkg/util"
+	corev1 "k8s.io/api/core/v1"
 
 	"context"
 
@@ -144,6 +144,11 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 
 	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port)
 	if err != nil {
+		if err.Error() == util.MaxAppDeployError {
+			log.Error(err)
+			w.WriteHeader(util.MaxAppDeployStatusCode)
+			return
+		}
 		log.Error(err, "while creating app")
 		w.WriteHeader(http.StatusInternalServerError)
 		return

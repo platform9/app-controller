@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 	"strconv"
+	"time"
 
 	"knative.dev/client/pkg/kn/commands"
 	//	"knative.dev/client/pkg/kn/commands/service"
+	"github.com/platform9/fast-path/pkg/options"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +17,6 @@ import (
 	servinglib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"github.com/platform9/fast-path/pkg/options"
 )
 
 func GetApps(kubeconfig string, space string) (apps_list string, err error) {
@@ -124,19 +124,16 @@ func constructService(
 
 	if port != "" {
 		port_num, err := strconv.Atoi(port)
-			if err != nil {
-				return service, err
-			}
+		if err != nil {
+			return service, err
+		}
 		container.Ports = []corev1.ContainerPort{{
 			ContainerPort: int32(port_num),
 			Name:          "",
 		}}
 	}
 
-	max_scale, err := options.GetConstraintMaxScale()
-	if err != nil {
-		return service, err
-	}
+	max_scale := options.GetConstraintMaxScale()
 	servinglib.UpdateMaxScale(template, max_scale)
 	return service, nil
 }
@@ -186,6 +183,18 @@ func CreateApp(
 
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
+
+	// Check for maximum apps deploy limit.
+	stopDeploy, err := maxAppDeployed(kubeconfig, space)
+	if err != nil {
+		log.Error(err, "Error while checking maximum app deployed.")
+		return err
+	}
+
+	if stopDeploy {
+		log.Error("Maximum Apps deploy limit reached!!")
+		return fmt.Errorf("Maximum App deploy limit reached!")
+	}
 
 	service, err := constructService(appName, space, image, env, port)
 	if err != nil {
@@ -242,4 +251,27 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	}
 
 	return nil
+}
+
+func maxAppDeployed(kubeconfig string, space string) (bool, error) {
+	get_apps, errMax := GetApps(kubeconfig, space)
+	if errMax != nil {
+		log.Error(errMax, "Error while listing apps")
+		return false, errMax
+	}
+
+	var appList map[string]interface{}
+
+	err := json.Unmarshal([]byte(get_apps), &appList)
+	if err != nil {
+		log.Error(err, "Failed to Unmarshal")
+		return false, err
+	}
+
+	max_app := options.GetConstraintMaxAppDeploy()
+
+	if len(appList["items"].([]interface{})) >= max_app {
+		return true, nil
+	}
+	return false, nil
 }

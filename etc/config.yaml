@@ -8,3 +8,4 @@ db:
   port: "3306"         # DB port
 constraints:
   max-scale: "3"       # Constraint on replica count
+  max-app: "7"         # Constraint on maximum apps deploy count

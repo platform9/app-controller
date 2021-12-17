@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/platform9/fast-path/pkg/util"
 	"github.com/spf13/viper"
 )
 
-
 const (
-	defaultDBType                = "mysql"
-	defaultDBSrc                 = "file::memory:?cache=shared"
+	defaultDBType = "mysql"
+	defaultDBSrc  = "file::memory:?cache=shared"
 )
-
 
 func init() {
 	viper.SetDefault("db.type", defaultDBType)
@@ -44,11 +43,21 @@ func GetDBCreds() string {
 		viper.GetString("db.name"))
 }
 
-func GetConstraintMaxScale() (int, error) {
+func GetConstraintMaxScale() int {
 	max_scale_str := viper.GetString("constraints.max-scale")
 	max_scale, err := strconv.Atoi(max_scale_str)
 	if err != nil {
-		return 0, err
+		return util.MaxAppScaleCount
 	}
-	return max_scale, nil
+	return max_scale
+}
+
+func GetConstraintMaxAppDeploy() int {
+	max_app_str := viper.GetString("constraints.max-app")
+	fmt.Printf("Max app str is %v", max_app_str)
+	max_app, err := strconv.Atoi(max_app_str)
+	if err != nil {
+		return util.MaxAppDeployCount
+	}
+	return max_app
 }
