@@ -43,21 +43,21 @@ func GetDBCreds() string {
 		viper.GetString("db.name"))
 }
 
-func GetConstraintMaxScale() (int, error) {
+func GetConstraintMaxScale() int {
 	max_scale_str := viper.GetString("constraints.max-scale")
 	max_scale, err := strconv.Atoi(max_scale_str)
 	if err != nil {
-		return util.MaxAppScaleCount, err
+		return util.MaxAppScaleCount
 	}
-	return max_scale, nil
+	return max_scale
 }
 
-func GetConstraintMaxAppDeploy() (int, error) {
+func GetConstraintMaxAppDeploy() int {
 	max_app_str := viper.GetString("constraints.max-app")
 	fmt.Printf("Max app str is %v", max_app_str)
 	max_app, err := strconv.Atoi(max_app_str)
 	if err != nil {
-		return util.MaxAppDeployCount, err
+		return util.MaxAppDeployCount
 	}
-	return max_app, nil
+	return max_app
 }

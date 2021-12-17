@@ -133,10 +133,7 @@ func constructService(
 		}}
 	}
 
-	max_scale, err := options.GetConstraintMaxScale()
-	if err != nil {
-		return service, err
-	}
+	max_scale := options.GetConstraintMaxScale()
 	servinglib.UpdateMaxScale(template, max_scale)
 	return service, nil
 }
@@ -271,10 +268,7 @@ func maxAppDeployed(kubeconfig string, space string) (bool, error) {
 		return false, err
 	}
 
-	max_app, err := options.GetConstraintMaxAppDeploy()
-	if err != nil {
-		return false, err
-	}
+	max_app := options.GetConstraintMaxAppDeploy()
 
 	if len(appList["items"].([]interface{})) >= max_app {
 		return true, nil
