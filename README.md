@@ -18,13 +18,7 @@ The kubeconfig of the cluster on which the knative is installed, should be place
 /etc/pf9/fast-path/config.yaml
 ```
 
-Example contents of this file look as follows:
-
-```
-# cat /etc/pf9/fast-path/config.yaml
-kubeconfig:
-  file: "/home/ubuntu/kubeconfig/aws3.yaml"
-```
+Example contents of this file is placed in etc/config.yaml in this repo.
 
 ### For DB Schema changes or first time builds
 

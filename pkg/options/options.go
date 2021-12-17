@@ -2,6 +2,7 @@ package options
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/viper"
 )
@@ -41,4 +42,13 @@ func GetDBCreds() string {
 		viper.GetString("db.host"),
 		viper.GetString("db.port"),
 		viper.GetString("db.name"))
+}
+
+func GetConstraintMaxScale() (int, error) {
+	max_scale_str := viper.GetString("constraints.max-scale")
+	max_scale, err := strconv.Atoi(max_scale_str)
+	if err != nil {
+		return 0, err
+	}
+	return max_scale, nil
 }

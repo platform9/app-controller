@@ -1,0 +1,10 @@
+kubeconfig:
+  file: "kc.yaml"      # Path to kubeconfig file of the cluster that hosts knative
+db:
+  user: "fastpath"     # User Name
+  password: "fastpath" # Password
+  name: "fastpath"     # Name of Database
+  host: "localhost"    # Host IP or URL on which mysql DB is hosted
+  port: "3306"         # DB port
+constraints:
+  max-scale: "3"       # Constraint on replica count

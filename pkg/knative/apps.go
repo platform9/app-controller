@@ -16,6 +16,7 @@ import (
 	servinglib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"github.com/platform9/fast-path/pkg/options"
 )
 
 func GetApps(kubeconfig string, space string) (apps_list string, err error) {
@@ -131,6 +132,12 @@ func constructService(
 			Name:          "",
 		}}
 	}
+
+	max_scale, err := options.GetConstraintMaxScale()
+	if err != nil {
+		return service, err
+	}
+	servinglib.UpdateMaxScale(template, max_scale)
 	return service, nil
 }
 
