@@ -23,6 +23,8 @@ const (
 	numberSet              = "0123456789"
 	AllCharSet             = lowerCharSet + numberSet
 	MaxAppDeployStatusCode = 429
+	MaxAppDeployCount      = 7
+	MaxAppScaleCount       = 1
 )
 
 // Validate a regex.

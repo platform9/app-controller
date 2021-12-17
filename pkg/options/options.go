@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/platform9/fast-path/pkg/util"
 	"github.com/spf13/viper"
 )
 
@@ -46,7 +47,7 @@ func GetConstraintMaxScale() (int, error) {
 	max_scale_str := viper.GetString("constraints.max-scale")
 	max_scale, err := strconv.Atoi(max_scale_str)
 	if err != nil {
-		return 0, err
+		return util.MaxAppScaleCount, err
 	}
 	return max_scale, nil
 }
@@ -56,7 +57,7 @@ func GetConstraintMaxAppDeploy() (int, error) {
 	fmt.Printf("Max app str is %v", max_app_str)
 	max_app, err := strconv.Atoi(max_app_str)
 	if err != nil {
-		return 0, err
+		return util.MaxAppDeployCount, err
 	}
 	return max_app, nil
 }
