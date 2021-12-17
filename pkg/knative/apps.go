@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"strconv"
 
 	"knative.dev/client/pkg/kn/commands"
 	//	"knative.dev/client/pkg/kn/commands/service"
@@ -96,7 +97,8 @@ func constructService(
 	name string,
 	namespace string,
 	image string,
-	env []corev1.EnvVar) (service servingv1.Service, err error) {
+	env []corev1.EnvVar,
+	port string) (service servingv1.Service, err error) {
 
 	service = servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,6 +120,17 @@ func constructService(
 	container := containerOfPodSpec(&template.Spec.PodSpec)
 	container.Image = image
 	container.Env = env
+
+	if port != "" {
+		port_num, err := strconv.Atoi(port)
+			if err != nil {
+				return service, err
+			}
+		container.Ports = []corev1.ContainerPort{{
+			ContainerPort: int32(port_num),
+			Name:          name,
+		}}
+	}
 	return service, nil
 }
 
@@ -149,7 +162,8 @@ func CreateApp(
 	appName string,
 	space string,
 	image string,
-	env []corev1.EnvVar) (err error) {
+	env []corev1.EnvVar,
+	port string) (err error) {
 
 	// Initialize the knative parameters
 	knParams := &commands.KnParams{}
@@ -166,7 +180,7 @@ func CreateApp(
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	service, err := constructService(appName, space, image, env)
+	service, err := constructService(appName, space, image, env, port)
 	if err != nil {
 		log.Error(err, "Error while creating the service object")
 		return err
