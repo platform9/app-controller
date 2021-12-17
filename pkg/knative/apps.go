@@ -128,7 +128,7 @@ func constructService(
 			}
 		container.Ports = []corev1.ContainerPort{{
 			ContainerPort: int32(port_num),
-			Name:          name,
+			Name:          "",
 		}}
 	}
 	return service, nil
