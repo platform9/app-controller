@@ -87,6 +87,7 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 type App struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
+	Port  string `json:"port"`
 	Envs  []struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
@@ -115,6 +116,8 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("app: %v", app)
+
 	// Validate a token, and get user claims.
 	userInfo, validToken, expired, err := ValidateToken(r)
 
@@ -139,7 +142,7 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		envVars = append(envVars, envVar)
 	}
 
-	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars)
+	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port)
 	if err != nil {
 		log.Error(err, "while creating app")
 		w.WriteHeader(http.StatusInternalServerError)
