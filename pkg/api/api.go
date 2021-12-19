@@ -10,14 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
+	"go.uber.org/zap"
+
+	"github.com/MicahParks/keyfunc"
 
 	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/platform9/fast-path/pkg/db"
 	"github.com/platform9/fast-path/pkg/knative"
 	"github.com/platform9/fast-path/pkg/objects"
+	"github.com/platform9/fast-path/pkg/options"
 	"github.com/platform9/fast-path/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 
@@ -52,35 +55,49 @@ func New() *mux.Router {
 }
 
 func getApp(w http.ResponseWriter, r *http.Request) {
+	zap.S().Info("***** Get Apps *****")
+	// Validate the token, and get claims.
+	claims, err := ValidateToken(r)
+	if err != nil {
+		if findStrInSlice(err.Error(), util.ErrorsToken) {
+			zap.S().Errorf("Token validation Error: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		zap.S().Errorf("Error is: %v", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// Validate a token, and get user claims.
-	userInfo, validToken, expired, err := ValidateToken(r)
-
-	// Continue only if token is valid, token is not expired and no error occured while validating token.
-	if !(validToken && !expired && err == nil) {
-		fmt.Printf("Token Validation Error: %v\n", err)
+	// Fetch user information from claims
+	userInfo, err := GetUserClaims(claims)
+	if err != nil {
+		zap.S().Errorf("Failed to get user information. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	//Get Namespace from DB
 	nameSpace, err := GetNamespace(*userInfo)
 	if err != nil {
-		fmt.Printf("Failed to get Namespace. Error: %v\n", err)
-		return
-	}
-
-	appList, err := knative.GetApps(util.Kubeconfig, nameSpace)
-
-	if err != nil {
-		log.Error(err, "while listing app")
+		zap.S().Errorf("Failed to get Namespace. Error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	appList, err := knative.GetApps(util.Kubeconfig, nameSpace)
+	if err != nil {
+		zap.S().Errorf("Error while listing app. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	zap.S().Infof("App List, successfull. Space: %v", nameSpace)
+
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(data); err != nil {
-		log.Error(err, "while responding over http")
+		zap.S().Errorf("Error while responding over http. Error: %v", err)
 	}
 }
 
@@ -96,43 +113,59 @@ type App struct {
 
 /*
 1. User fires appctl deploy command with name, image, token as bearer.
-2. Validate the token, get user name, token expiry.
-3. If token is expired return message token expired. Else continue..
-	4. Fetch Username - Namespace map in DB. Use this as nameSpace.
-	5. CreateApp.
+2. Validate the token, get user info.
+3. If token is valid,
+	4. Fetch Username - Namespace map in DB.
+	5. CreateApp using above fetched namespace.
 */
 
 func createApp(w http.ResponseWriter, r *http.Request) {
-	app := App{}
-	body, err := ioutil.ReadAll(r.Body)
+	zap.S().Info("***** Create App *****")
+	// Validate the token, and get claims.
+	claims, err := ValidateToken(r)
 	if err != nil {
-		log.Error(err, "while reading data in request body")
+		if findStrInSlice(err.Error(), util.ErrorsToken) {
+			zap.S().Errorf("Token validation Error: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		zap.S().Errorf("Error is: %v", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = json.Unmarshal(body, &app)
+	// Fetch user information from claims
+	userInfo, err := GetUserClaims(claims)
 	if err != nil {
-		log.Error(err, "while unmarhsalling request body data")
-		return
-	}
-
-	fmt.Printf("app: %v", app)
-
-	// Validate a token, and get user claims.
-	userInfo, validToken, expired, err := ValidateToken(r)
-
-	// Continue only if token is valid, token is not expired and no error occured while validating token.
-	if !(validToken && !expired && err == nil) {
-		fmt.Printf("Token Validation Error: %v\n", err)
+		zap.S().Errorf("Failed to get user information. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	//Get Namespace from DB
 	nameSpace, err := GetNamespace(*userInfo)
 	if err != nil {
-		fmt.Printf("Failed to get Namespace. Error: %v", err)
+		zap.S().Errorf("Failed to get Namespace. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	app := App{}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		zap.S().Errorf("Error while reading data in request body. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = json.Unmarshal(body, &app)
+	if err != nil {
+		zap.S().Errorf("Error while unmarhsalling request body data. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	zap.S().Debugf("app: %v\n", app)
 
 	envVars := []corev1.EnvVar{}
 	envVar := corev1.EnvVar{}
@@ -145,82 +178,117 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
-			log.Error(err)
+			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
 			w.WriteHeader(util.MaxAppDeployStatusCode)
 			return
 		}
-		log.Error(err, "while creating app")
+		zap.S().Errorf("Error while creating app. Error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	zap.S().Infof("App Name: %v, Image: %v, created successfully in Space: %v", app.Name, app.Image, nameSpace)
 	w.WriteHeader(http.StatusOK)
 }
 
 func getAppByName(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	appName := vars["name"]
 
-	// Validate a token, and get user claims.
-	userInfo, validToken, expired, err := ValidateToken(r)
+	zap.S().Info("***** Get App by name *****")
 
-	// Continue only if token is valid, token is not expired and no error occured while validating token.
-	if !(validToken && !expired && err == nil) {
-		fmt.Printf("Token Validation Error: %v\n", err)
+	// Validate the token, and get claims.
+	claims, err := ValidateToken(r)
+	if err != nil {
+		if findStrInSlice(err.Error(), util.ErrorsToken) {
+			zap.S().Errorf("Token validation Error: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		zap.S().Errorf("Error is: %v", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch user information from claims
+	userInfo, err := GetUserClaims(claims)
+	if err != nil {
+		zap.S().Errorf("Failed to get user information. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	//Get Namespace from DB
 	nameSpace, err := GetNamespace(*userInfo)
 	if err != nil {
-		fmt.Printf("Failed to get Namespace. Error: %v", err)
-		return
-	}
-
-	appList, err := knative.GetAppByName(util.Kubeconfig, nameSpace, appName)
-
-	if err != nil {
-		log.Error(err, "while listing app")
+		zap.S().Errorf("Failed to get Namespace. Error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	vars := mux.Vars(r)
+	appName := vars["name"]
+
+	appList, err := knative.GetAppByName(util.Kubeconfig, nameSpace, appName)
+	if err != nil {
+		zap.S().Errorf("Error while listing app. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	zap.S().Infof("Get app by name successfull. Name: %v, Space: %v", appName, nameSpace)
 
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(data); err != nil {
-		log.Error(err, "while responding over http")
+		zap.S().Errorf("Error while responding over http. Error: %v", err)
 	}
 }
 
 func deleteApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	deleteAppName := vars["name"]
+	zap.S().Info("***** Delete App *****")
 
-	// Validate a token, and get user claims.
-	userInfo, validToken, expired, err := ValidateToken(r)
+	// Validate the token, and get claims.
+	claims, err := ValidateToken(r)
+	if err != nil {
+		if findStrInSlice(err.Error(), util.ErrorsToken) {
+			zap.S().Errorf("Token validation Error: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		zap.S().Errorf("Error is: %v", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// Continue only if token is valid, token is not expired and no error occured while validating token.
-	if !(validToken && !expired && err == nil) {
-		fmt.Printf("Token Validation Error: %v\n", err)
+	// Fetch user information from claims
+	userInfo, err := GetUserClaims(claims)
+	if err != nil {
+		zap.S().Errorf("Failed to get user information. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	//Get Namespace from DB
 	nameSpace, err := GetNamespace(*userInfo)
 	if err != nil {
-		fmt.Printf("Failed to get Namespace. Error: %v", err)
-		return
-	}
-
-	fmt.Printf("vars : %v\n", vars)
-
-	fmt.Printf("Name: %s, space: %s", deleteAppName, nameSpace)
-
-	errdel := knative.DeleteApp(util.Kubeconfig, nameSpace, deleteAppName)
-	if errdel != nil {
-		log.Error(errdel, "while deleting app")
+		zap.S().Errorf("Failed to get Namespace. Error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	vars := mux.Vars(r)
+	deleteAppName := vars["name"]
+
+	zap.S().Debugf("vars : %v", vars)
+
+	zap.S().Infof("Name: %s, space: %s", deleteAppName, nameSpace)
+
+	errDel := knative.DeleteApp(util.Kubeconfig, nameSpace, deleteAppName)
+	if errDel != nil {
+		zap.S().Errorf("Error while deleting app. Error: %v", errDel)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	zap.S().Infof("Delete app succesfull. Name: %v, Space: %v", deleteAppName, nameSpace)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -232,13 +300,26 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 	5. Else, create a userNamespace and update the DB.
 */
 func loginApp(w http.ResponseWriter, r *http.Request) {
+	zap.S().Info("***** Login *****")
 
-	// Validate a token, and get user claims.
-	userInfo, validToken, expired, err := ValidateToken(r)
+	// Validate the token, and get claims.
+	claims, err := ValidateToken(r)
+	if err != nil {
+		if findStrInSlice(err.Error(), util.ErrorsToken) {
+			zap.S().Errorf("Token validation Error: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		zap.S().Errorf("Error is: %v", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// Continue only if token is valid, token is not expired and no error occured while validating token.
-	if !(validToken && !expired && err == nil) {
-		fmt.Printf("Token Validation Error: %v\n", err)
+	// Fetch user information from claims
+	userInfo, err := GetUserClaims(claims)
+	if err != nil {
+		zap.S().Errorf("Failed to get user information. Error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -251,7 +332,8 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(userInfo.Sub, "github") {
 		errDB := que.GetUserByName(userInfo.NickName, &userDB)
 		if errDB != nil {
-			fmt.Printf("DB Error: %v\n", errDB)
+			zap.S().Errorf("DB Error: %v", errDB)
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		if userDB.Name == userInfo.NickName {
 			UserExists = true
@@ -259,16 +341,17 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 	} else {
 		errDB := que.GetUserByEmail(userInfo.Email, &userDB)
 		if errDB != nil {
-			fmt.Printf("Get user info from DB. Error: %v\n", errDB)
+			zap.S().Errorf("Get user info from DB. Error: %v", errDB)
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		if userDB.Email == userInfo.Email {
 			UserExists = true
 		}
 	}
 
-	var NameSpace string
+	var NameSpace, createdNS string
 	if !UserExists {
-
+		zap.S().Info("User doesn't exist's in DB, starting creation of namespace.")
 		if strings.Contains(userInfo.Sub, "github") {
 			NameSpace = userInfo.NickName + CreateRandomCode(6)
 		} else {
@@ -277,66 +360,67 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 
 		// Check if namespace is valid. bcz only regex valid "^*[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 		if util.RegexValidate(NameSpace) {
-			fmt.Printf("Its a Valid Namespace\n")
+			zap.S().Debug("Its a Valid Namespace")
 		} else {
 			/* If namespace is invalid:
 			1. Remove all special characters other than [a-zA-Z0-9] from namespace.
 			2. Convert if any uppercase characters exists in string to lowercase.
 			*/
-			fmt.Printf("Namespace given is not valid, so formating as per valid regex.\n")
+			zap.S().Debug("Namespace given is not valid, so formating as per valid regex.")
 			NameSpace, err = RemoveSpecialChars(NameSpace)
 			if err != nil {
-				fmt.Printf("Notable to remove special characters from given string. Error: %v", err)
+				zap.S().Errorf("Notable to remove special characters from given string. Error: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
 			}
 			NameSpace = NameSpace + CreateRandomCode(6)
 		}
 
 		// Create new namespace.
-		errNamespace := CreateNamespace(NameSpace)
-		if errNamespace != nil {
-			fmt.Printf("Failed to create a namespace with name %v\n", NameSpace)
+		createdNS, err = CreateNamespace(NameSpace)
+		if err != nil {
+			zap.S().Errorf("Failed to create a namespace with name %v. Error: ", createdNS, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Printf("Successfully created namespace\n")
+		zap.S().Infof("Successfully created namespace %v", createdNS)
 
 		// Add Userinfo to DB.
 		var user objects.User
 		user.Name = userInfo.NickName
 		user.Email = userInfo.Email
-		user.Space = NameSpace
+		user.Space = createdNS
 
 		errDB := que.AddUser(&user)
-		if err != nil {
-			fmt.Printf("Adding Info to DB. Error: %v\n", errDB)
+		if errDB != nil {
+			zap.S().Errorf("Adding user information to DB. Error: %v", errDB)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
-	} else {
-		// User already exists in DB, then check expiry of token.
-		expiryTime := time.Unix(int64(userInfo.Exp), 0)
-		if expiryTime.Before(time.Now()) {
-			fmt.Printf("Login expired. Please login again using command `appctl login`\n")
-		}
+		zap.S().Infof("Added user information to DB. Name: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, createdNS)
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
-func CreateNamespace(nameSpace string) error {
+// To create a new namespace as part of login.
+func CreateNamespace(nameSpace string) (string, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", util.Kubeconfig)
 	if err != nil {
-		fmt.Printf("Error building config: %v", err)
-		return err
+		zap.S().Errorf("Error building config: %v", err)
+		return "", err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Printf("Error creating kubernetes config: %v", err)
-		return err
+		zap.S().Errorf("Error creating kubernetes config: %v", err)
+		return "", err
 	}
 
 	// Check if the creating namespace already exist.
 	_, errGetNs := clientset.CoreV1().Namespaces().Get(context.TODO(), nameSpace, metav1.GetOptions{})
 	if errGetNs == nil {
 		nameSpace = nameSpace + CreateRandomCode(4)
-		fmt.Printf("Namespace already exists. Generating new namespace: %v\n", nameSpace)
+		zap.S().Debugf("Namespace already exists. Generating new namespace: %v", nameSpace)
 	}
 
 	// Namespace metaobject.
@@ -349,10 +433,10 @@ func CreateNamespace(nameSpace string) error {
 	//Create a namespace.
 	_, errCreate := clientset.CoreV1().Namespaces().Create(context.Background(), nsName, metav1.CreateOptions{})
 	if errCreate != nil {
-		fmt.Printf("Failed to create a new namespace %v\n", nameSpace)
-		return errCreate
+		zap.S().Errorf("Failed to create a new namespace %v. Error: %v", nameSpace, errCreate)
+		return "", errCreate
 	}
-	return nil
+	return nameSpace, nil
 }
 
 // Get the namespace for user, from DB.
@@ -363,25 +447,28 @@ func GetNamespace(userInfo UserInfo) (string, error) {
 	if strings.Contains(userInfo.Sub, "github") {
 		errDB := que.GetUserByName(userInfo.NickName, &userDB)
 		if errDB != nil {
-			fmt.Printf("DB Error: %v\n", errDB)
+			zap.S().Errorf("DB Error: %v", errDB)
 			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
 		}
 		if userDB.Space != "" {
+			zap.S().Debugf("Namespace found is: %v", userDB.Space)
 			return userDB.Space, nil
 		}
 	} else {
 		errDB := que.GetUserByEmail(userInfo.Email, &userDB)
 		if errDB != nil {
-			fmt.Printf("Get user info from DB. Error: %v\n", errDB)
+			zap.S().Errorf("Get user info from DB. Error: %v", errDB)
 			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
 		}
 		if userDB.Space != "" {
+			zap.S().Debugf("Namespace found is: %v", userDB.Space)
 			return userDB.Space, nil
 		}
 	}
 	return "", fmt.Errorf("Failed to get Namespace")
 }
 
+// Create a random code of given length.
 func CreateRandomCode(lenCode int) string {
 	var letter = []rune(util.AllCharSet)
 
@@ -393,66 +480,80 @@ func CreateRandomCode(lenCode int) string {
 	return string(code)
 }
 
-// Check if token is expired or not.
-func CheckTokenExpired(expiry float64) bool {
-	// User already exists in DB.
-	expiryTime := time.Unix(int64(expiry), 0)
-	if expiryTime.Before(time.Now()) {
-		fmt.Printf("Login expired. Please login again using command `appctl login`\n")
-		return true
-	}
-	return false
-}
-
 // Remove all special characters and convert to lowercase alphanumeric string.
 func RemoveSpecialChars(specialChar string) (string, error) {
 	regex, err := regexp.Compile(util.NoSpecialChar)
 	if err != nil {
+		zap.S().Errorf("Error while removing special characters: %v", err)
 		return "", fmt.Errorf("%v\n", err)
 	}
 	formattedString := regex.ReplaceAllString(specialChar, "")
 	return strings.ToLower(formattedString), nil
 }
 
-// Validate token, check if token is expired or not and return user claims as userInfo.
-func ValidateToken(r *http.Request) (*UserInfo, bool, bool, error) {
-
-	// Fetch the token.
-	reqToken := r.Header.Get("Authorization")
-	splitToken := strings.Split(reqToken, "Bearer ")
-	reqToken = splitToken[1]
-
-	// Parse the token.
-	tokens, err := jwt.Parse(reqToken, nil)
-	if tokens == nil {
-		fmt.Printf("Empty with error :%v", err)
-	}
-
-	//Fetch Claims
-	claims, _ := tokens.Claims.(jwt.MapClaims)
-
-	// Doing simple additional validation i.e if audiance == auth0 clientID
-	if claims["aud"] != util.ClientId {
-		return &UserInfo{}, false, false, fmt.Errorf("Token is invalid")
-	}
-
-	if expiry, ok := claims["exp"].(float64); ok {
-		// Check if token is expired.
-		if CheckTokenExpired(expiry) {
-			fmt.Printf("Token is expired\n")
-			return &UserInfo{}, true, true, fmt.Errorf("Token is Expired\n")
-		}
-	} else {
-		return &UserInfo{}, true, false, fmt.Errorf("Can't fetch token expiryAt time.\n")
-	}
+// Get the UserInfo from claims.
+func GetUserClaims(claims jwt.Claims) (*UserInfo, error) {
 
 	var user UserInfo
 	errStru := mapstructure.Decode(claims, &user)
 	if errStru != nil {
-		fmt.Printf("Failed to convert map to struct\n")
-		return &UserInfo{}, true, false, fmt.Errorf("%v", errStru)
+		zap.S().Error("Failed to convert map to struct. Error: %v", errStru)
+		return &UserInfo{}, fmt.Errorf("%v", errStru)
 	}
 
-	fmt.Printf("The User info is %+v\n", user)
-	return &user, true, false, nil
+	zap.S().Infof("The User info is %+v", user)
+	return &user, nil
+}
+
+// Fetch the token and validate it.
+func ValidateToken(r *http.Request) (jwt.Claims, error) {
+
+	// Fetch the token.
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return jwt.MapClaims{}, fmt.Errorf(util.ErrorsToken[2])
+	}
+
+	bearerToken := strings.Split(authHeader, "Bearer ")
+	if len(bearerToken) != 2 {
+		return jwt.MapClaims{}, fmt.Errorf(util.ErrorsToken[2])
+	}
+
+	// Create the JWKS from the resource at the given URL.
+	jwks, err := keyfunc.Get(options.GetJWKSURL(), keyfunc.Options{})
+	if err != nil {
+		zap.S().Errorf("Failed to create JWKS from URL.\nError: %s", err.Error())
+		return jwt.MapClaims{}, fmt.Errorf("Failed to create JWKS from URL. Error: %s", err.Error())
+	}
+
+	// Parse the token.
+	token, err := jwt.Parse(bearerToken[1], jwks.Keyfunc)
+	if err != nil {
+		zap.S().Errorf("Error is %v\n", err)
+		if err.Error() == util.ErrorsToken[0] {
+			return jwt.MapClaims{}, fmt.Errorf(util.ErrorsToken[0])
+		}
+		zap.S().Errorf("Falied to parse token. Error: %s", err.Error())
+		return jwt.MapClaims{}, fmt.Errorf("Falied to parse token. Error: %s", err.Error())
+	}
+
+	//Fetch Claims
+	claims, _ := token.Claims.(jwt.MapClaims)
+
+	// Audiance validation i.e if audiance == auth0 clientID
+	if !token.Valid || claims["aud"] != options.GetAuth0ClientId() {
+		return jwt.MapClaims{}, fmt.Errorf(util.ErrorsToken[1])
+	}
+
+	return claims, nil
+}
+
+// To check if a string exists in a slice of strings.
+func findStrInSlice(msg string, list []string) bool {
+	for _, value := range list {
+		if value == msg {
+			return true
+		}
+	}
+	return false
 }
