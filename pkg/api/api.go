@@ -398,8 +398,16 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		zap.S().Infof("Added user information to DB. Name: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, createdNS)
+	} else {
+		//Get Namespace from DB
+		nameSpace, err := GetNamespace(*userInfo)
+		if err != nil {
+			zap.S().Errorf("Failed to get Namespace. Error: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		zap.S().Infof("Login successfull. Existing-User: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, nameSpace)
 	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
