@@ -7,10 +7,11 @@ import (
 	"strconv"
 	"time"
 
+	"go.uber.org/zap"
 	"knative.dev/client/pkg/kn/commands"
+
 	//	"knative.dev/client/pkg/kn/commands/service"
 	"github.com/platform9/fast-path/pkg/options"
-	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +29,7 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 	// Fetch the knative serving client for a given knative space
 	client, err := knParams.NewServingClient(space)
 	if err != nil {
-		log.Error(err, "Error while creating a knative serving client")
+		zap.S().Errorf("Error while creating a knative serving client: %v", err)
 		return "", err
 	}
 
@@ -38,14 +39,14 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 	// Call the knative API
 	appsList, err := client.ListServices(ctx)
 	if err != nil {
-		log.Error(err, "Error while listing apps")
+		zap.S().Errorf("Error while listing apps: %v", err)
 		return "", err
 	}
 
 	// Encode the apps list in json format
 	jsonAppList, err := json.Marshal(appsList)
 	if err != nil {
-		log.Error(err, "Error while json marshalling the apps list")
+		zap.S().Errorf("Error while json marshalling the apps list: %v", err)
 		return "", err
 	}
 
@@ -62,7 +63,7 @@ func GetAppByName(kubeconfig string, space string, appName string) (apps_list st
 	// Fetch the knative serving client for a given knative space
 	client, err := knParams.NewServingClient(space)
 	if err != nil {
-		log.Error(err, "Error while creating a knative serving client")
+		zap.S().Errorf("Error while creating a knative serving client: %v", err)
 		return "", err
 	}
 
@@ -72,14 +73,14 @@ func GetAppByName(kubeconfig string, space string, appName string) (apps_list st
 	// Call the knative API to get service by Name
 	appGetByName, err := client.GetService(ctx, appName)
 	if err != nil {
-		log.Error(err, "Error while listing app")
+		zap.S().Errorf("Error while listing app: %v", err)
 		return "", err
 	}
 
 	// Encode the app info in json format
 	jsonApp, err := json.Marshal(appGetByName)
 	if err != nil {
-		log.Error(err, "Error while json marshalling the app")
+		zap.S().Errorf("Error while json marshalling the app: %v", err)
 		return "", err
 	}
 
@@ -177,7 +178,7 @@ func CreateApp(
 	// Fetch the knative serving client for a given knative space
 	client, err := knParams.NewServingClient(space)
 	if err != nil {
-		log.Error(err, "Error while creating a knative serving client")
+		zap.S().Errorf("Error while creating a knative serving client: %v", err)
 		return err
 	}
 
@@ -187,30 +188,31 @@ func CreateApp(
 	// Check for maximum apps deploy limit.
 	stopDeploy, err := maxAppDeployed(kubeconfig, space)
 	if err != nil {
-		log.Error(err, "Error while checking maximum app deployed.")
+		zap.S().Errorf("Error while checking maximum app deployed: %v", err)
 		return err
 	}
 
 	if stopDeploy {
-		log.Error("Maximum Apps deploy limit reached!!")
+		zap.S().Errorf("Maximum Apps deploy limit reached!!")
 		return fmt.Errorf("Maximum App deploy limit reached!")
 	}
 
 	service, err := constructService(appName, space, image, env, port)
 	if err != nil {
-		log.Error(err, "Error while creating the service object")
+		zap.S().Errorf("Error while creating the service object: %v", err)
 		return err
 	}
 
-	fmt.Printf("Service : %v\n", service)
+	zap.S().Debugf("Service : %v\n", service)
 
 	serviceExists, err := serviceExists(ctx, client, service.Name)
 	if err != nil {
-		log.Error(err, "Error while checking for service existence")
+		zap.S().Errorf("Error while checking for service existence: %v", err)
 		return err
 	}
 
 	if serviceExists {
+		zap.S().Error("Service already exists.")
 		return fmt.Errorf("Service already exists")
 	} else {
 		err = createAppKnative(ctx, client, &service)
@@ -232,7 +234,7 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	// Fetch the knative serving client for a given knative space
 	client, err := knParams.NewServingClient(space)
 	if err != nil {
-		log.Error(err, "Error while creating a knative serving client")
+		zap.S().Errorf("Error while creating a knative serving client: %v", err)
 		return err
 	}
 
@@ -246,7 +248,7 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	// Call the knative API to delete service by Name
 	errdelete := client.DeleteService(ctx, appName, timeout)
 	if errdelete != nil {
-		log.Error(errdelete, "Error while deleting app")
+		zap.S().Errorf("Error while deleting app: %v", errdelete)
 		return err
 	}
 
@@ -256,7 +258,7 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 func maxAppDeployed(kubeconfig string, space string) (bool, error) {
 	get_apps, errMax := GetApps(kubeconfig, space)
 	if errMax != nil {
-		log.Error(errMax, "Error while listing apps")
+		zap.S().Errorf("Error while listing apps: %v", errMax)
 		return false, errMax
 	}
 
@@ -264,7 +266,7 @@ func maxAppDeployed(kubeconfig string, space string) (bool, error) {
 
 	err := json.Unmarshal([]byte(get_apps), &appList)
 	if err != nil {
-		log.Error(err, "Failed to Unmarshal")
+		zap.S().Errorf("Failed to Unmarshal: %v", err)
 		return false, err
 	}
 

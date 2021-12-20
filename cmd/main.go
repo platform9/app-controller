@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -9,19 +10,19 @@ import (
 
 	"github.com/platform9/fast-path/pkg/api"
 	"github.com/platform9/fast-path/pkg/db"
+	"github.com/platform9/fast-path/pkg/log"
 	"github.com/platform9/fast-path/pkg/util"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // Stub to read any environment variables
 func readEnv() {
 }
 
-
 func run(*cobra.Command, []string) {
-	log.Info("Starting fast-path...")
+	zap.S().Info("Starting fast-path...")
 	router := api.New()
 	srv := &http.Server{
 		Handler: router,
@@ -30,7 +31,7 @@ func run(*cobra.Command, []string) {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			zap.S().Fatalf(err.Error())
 		}
 	}()
 
@@ -38,11 +39,11 @@ func run(*cobra.Command, []string) {
 	signal.Notify(stop, os.Interrupt)
 	select {
 	case <-stop:
-		log.Infof("server stopping...")
+		zap.S().Info("server stopping...")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Fatal(err)
+			zap.S().Fatalf(err.Error())
 		}
 	}
 }
@@ -73,6 +74,7 @@ func buildCmds() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			dbHandle := db.Get()
 			if err := dbHandle.Migrate(); err != nil {
+				zap.S().Errorf(err.Error())
 				panic(err)
 			}
 		},
@@ -85,7 +87,15 @@ func buildCmds() *cobra.Command {
 func initCfg() {
 	viper.SetConfigFile(cfgFile)
 	if err := viper.ReadInConfig(); err != nil {
+		zap.S().Errorf(err.Error())
 		panic(err)
 	}
 	util.Kubeconfig = viper.GetString("kubeconfig.file")
+}
+
+func init() {
+	err := log.Logger()
+	if err != nil {
+		fmt.Printf("Failed to initiate logger, Error is: %s", err)
+	}
 }

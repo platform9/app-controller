@@ -52,12 +52,19 @@ func GetConstraintMaxScale() int {
 	return max_scale
 }
 
+func GetAuth0ClientId() string {
+	return viper.GetString("auth0.client-id")
+}
+
 func GetConstraintMaxAppDeploy() int {
 	max_app_str := viper.GetString("constraints.max-app")
-	fmt.Printf("Max app str is %v", max_app_str)
 	max_app, err := strconv.Atoi(max_app_str)
 	if err != nil {
 		return util.MaxAppDeployCount
 	}
 	return max_app
+}
+
+func GetJWKSURL() string {
+	return viper.GetString("jwks.url")
 }

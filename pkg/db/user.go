@@ -2,9 +2,9 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 
 	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/platform9/fast-path/pkg/objects"
 )
@@ -42,7 +42,7 @@ func (q *Querier) RemoveUserByEmail(user *objects.User) error {
 	stmtIns, err := tx.Prepare("DELETE FROM users WHERE email=?")
 
 	if err != nil {
-		fmt.Println(err)
+		zap.S().Errorf(err.Error())
 		return err
 	}
 
@@ -65,7 +65,7 @@ func (q *Querier) RemoveUserByName(user *objects.User) error {
 	stmtIns, err := tx.Prepare("DELETE FROM users WHERE name=?")
 
 	if err != nil {
-		fmt.Println(err)
+		zap.S().Errorf(err.Error())
 		return err
 	}
 
