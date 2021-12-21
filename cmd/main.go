@@ -26,7 +26,7 @@ func run(*cobra.Command, []string) {
 	router := api.New()
 	srv := &http.Server{
 		Handler: router,
-		Addr:    "127.0.0.1:6112",
+		Addr:    ":6112",
 	}
 
 	go func() {
