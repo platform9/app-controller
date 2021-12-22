@@ -11,5 +11,5 @@ constraints:
   max-app: "7"         # Constraint on maximum apps deploy count
 jwks:
   url: "jwks-url"      # JWKS url of auth0 tenant.
-auth:
+auth0:
   client-id: "auth0-client-id" #Auth0 client-id of tenant.
