@@ -181,9 +181,15 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
 			w.WriteHeader(util.MaxAppDeployStatusCode)
 			return
+		} else if strings.Contains(err.Error(), util.Errors[0]) {
+			zap.S().Errorf("Error while creating app. Error: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
+
 		zap.S().Errorf("Error while creating app. Error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
