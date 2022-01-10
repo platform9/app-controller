@@ -16,6 +16,7 @@ var (
 	// Maximum App Deploy Error
 	MaxAppDeployError = "Maximum App deploy limit reached!"
 	ErrorsToken       = []string{"Token is expired", "Forbidden", "Token Invalid"}
+	Errors            = []string{"Failed to parse image"}
 )
 
 const (
