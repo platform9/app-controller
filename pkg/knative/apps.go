@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"encoding/base64"
+	"strings"
 
 	"go.uber.org/zap"
 	"knative.dev/client/pkg/kn/commands"
-
-	//	"knative.dev/client/pkg/kn/commands/service"
 	"github.com/platform9/fast-path/pkg/options"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +18,9 @@ import (
 	servinglib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/cmd/create"
 )
 
 func GetApps(kubeconfig string, space string) (apps_list string, err error) {
@@ -100,7 +103,8 @@ func constructService(
 	namespace string,
 	image string,
 	env []corev1.EnvVar,
-	port string) (service servingv1.Service, err error) {
+	port string,
+	secretname string) (service servingv1.Service, err error) {
 
 	service = servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -122,6 +126,12 @@ func constructService(
 	container := containerOfPodSpec(&template.Spec.PodSpec)
 	container.Image = image
 	container.Env = env
+
+	if secretname != "" {
+		template.Spec.PodSpec.ImagePullSecrets = []corev1.LocalObjectReference{{
+			Name: secretname,
+		}}
+	}
 
 	if port != "" {
 		port_num, err := strconv.Atoi(port)
@@ -162,13 +172,131 @@ func createAppKnative(
 	return nil
 }
 
+// handleDockerCfgJSONContent serializes a ~/.docker/config.json file
+func handleDockerCfgJSONContent(username, password, server string) ([]byte, error) {
+	dockerConfigAuth := create.DockerConfigEntry{
+		Username: username,
+		Password: password,
+		Auth:     encodeDockerConfigFieldAuth(username, password),
+	}
+	dockerConfigJSON := create.DockerConfigJSON{
+		Auths: map[string]create.DockerConfigEntry{server: dockerConfigAuth},
+	}
+
+	return json.Marshal(dockerConfigJSON)
+}
+
+// encodeDockerConfigFieldAuth returns base64 encoding of the username and password string
+func encodeDockerConfigFieldAuth(username, password string) string {
+	fieldValue := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(fieldValue))
+}
+
+// Constructor for corev1.Secret object
+func newSecretObj(name, namespace string, secretType corev1.SecretType) *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: secretType,
+		Data: map[string][]byte{},
+	}
+}
+
+func extractRegistryURL(image string) (url string, err error) {
+
+	url = strings.TrimPrefix(url, "http://")
+	url = strings.TrimPrefix(url, "https://")
+
+	urlList := strings.Split(url, "/")
+
+	if (urlList[0] == "docker.io") {
+		return "https://index.docker.io/v1/"
+	} else if (strings.Contains(urlList[0], "amazonaws")) {
+		return "https://" + urlList[0]
+	} else if (strings.Contains(urlList[0], "gcr.io")) {
+		return "https://" + urlList[0]
+	}
+
+	return fmt.Errorf("Incorrect image format")
+}
+
+
+// Inject container secrets into the namespace
+func injectContainerImageSecrets(
+	kubeconfig string,
+	space string,
+	secretname, string,
+        username string,
+	password string,
+	image string) (err error) {
+
+	url, err := extractRegistryURL(image)
+	if err != nil {
+		zap.S().Errorf("Error while extracting registry URL from the image URL: %v", err)
+		return err
+	}
+
+	// create config structure instance from the kubeconfig
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		zap.S().Errorf("Error while creating config object from kubeconfig: %v", err)
+		return err
+	}
+
+	// create clientset from the kubeconfig in-mem structure
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		zap.S().Errorf("Error while creating clientset: %v", err)
+		return err
+	}
+
+	// Create in-mem secretDockerRegistryOptions that are used to create the secretDockerRegistry structure
+	var secretDockerRegistry *corev1.Secret = nil
+	secretDockerRegistryOptions := create.CreateSecretDockerRegistryOptions{
+		Name:       secretname,
+		Username:   username,
+		Password:   password,
+		Server:     server,
+		AppendHash: false,
+		Namespace:  namespace,
+	}
+
+	// Validate the secretDockerRegistryOptions
+	err = secretDockerRegistryOptions.Validate()
+	if err != nil {
+		fmt.Println("Error Validating secret options: ", err)
+		return
+	}
+
+	// Create in-mem secretDockerRegistry using options.
+	secretDockerRegistry, err = createDockerRegistry(secretDockerRegistryOptions)
+
+
+	createOptions := metav1.CreateOptions{}
+	// Fire secret creation CoreV1 API.
+	secretDockerRegistry, err = clientset.CoreV1().Secrets(namespace).Create(context.TODO(), secretDockerRegistry, createOptions)
+	if err != nil {
+		return
+	}
+
+}
+
 func CreateApp(
 	kubeconfig string,
 	appName string,
 	space string,
 	image string,
 	env []corev1.EnvVar,
-	port string) (err error) {
+	port string,
+	secretname string,
+	username string,
+	password string) (err error) {
 
 	// Initialize the knative parameters
 	knParams := &commands.KnParams{}
@@ -197,7 +325,18 @@ func CreateApp(
 		return fmt.Errorf("Maximum App deploy limit reached!")
 	}
 
-	service, err := constructService(appName, space, image, env, port)
+
+	// If container secret info exists, create a secret in the k8s cluster.
+	if ( (secretname != nil) &&
+	     (username != nil)  &&
+	     (password != nil)) {
+		err = injectContainerImageSecrets(kubeconfig, space, secretname, username, password, image)
+		if err != nil {
+			zap.S().Errorf("Error while injecting the secrets object: %v", err)
+		}
+	}
+
+	service, err := constructService(appName, space, image, env, port, secretname)
 	if err != nil {
 		zap.S().Errorf("Error while creating the service object: %v", err)
 		return err

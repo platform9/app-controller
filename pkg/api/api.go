@@ -92,7 +92,7 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zap.S().Infof("App List, successfull. Space: %v", nameSpace)
+	zap.S().Infof("App List, successful. Space: %v", nameSpace)
 
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
@@ -109,6 +109,9 @@ type App struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	} `json:"envs"`
+	SecretName string `json:"secretname"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
 
 /*
@@ -175,7 +178,8 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		envVars = append(envVars, envVar)
 	}
 
-	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port)
+	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port,
+				app.SecretName, app.UserName, app.Password)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
