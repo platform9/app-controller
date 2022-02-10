@@ -244,7 +244,7 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zap.S().Infof("Get app by name successfull. Name: %v, Space: %v", appName, nameSpace)
+	zap.S().Infof("Get app by name successful. Name: %v, Space: %v", appName, nameSpace)
 
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
@@ -298,7 +298,7 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	zap.S().Infof("Delete app succesfull. Name: %v, Space: %v", deleteAppName, nameSpace)
+	zap.S().Infof("Delete app succesful. Name: %v, Space: %v", deleteAppName, nameSpace)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -416,7 +416,7 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		zap.S().Infof("Login successfull. Existing-User: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, nameSpace)
+		zap.S().Infof("Login successful. Existing-User: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, nameSpace)
 	}
 	w.WriteHeader(http.StatusOK)
 }
