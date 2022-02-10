@@ -2,25 +2,25 @@ package knative
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
-	"encoding/base64"
 	"strings"
+	"time"
 
-	"go.uber.org/zap"
-	"knative.dev/client/pkg/kn/commands"
 	"github.com/platform9/fast-path/pkg/options"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	servinglib "knative.dev/client/pkg/serving"
-	clientservingv1 "knative.dev/client/pkg/serving/v1"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/cmd/create"
+	"knative.dev/client/pkg/kn/commands"
+	servinglib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func GetApps(kubeconfig string, space string) (apps_list string, err error) {
@@ -208,35 +208,45 @@ func newSecretObj(name, namespace string, secretType corev1.SecretType) *corev1.
 	}
 }
 
-func extractRegistryURL(image string) (url string, err error) {
+func createDockerRegistry(so create.CreateSecretDockerRegistryOptions) (*corev1.Secret, error) {
+	secretDockerRegistry := newSecretObj(so.Name, so.Namespace, corev1.SecretTypeDockerConfigJson)
+	dockerConfigJSONContent, err := handleDockerCfgJSONContent(so.Username, so.Password, so.Server)
+	if err != nil {
+		return nil, err
+	}
+	secretDockerRegistry.Data[corev1.DockerConfigJsonKey] = dockerConfigJSONContent
+
+	return secretDockerRegistry, nil
+}
+
+func extractRegistryURL(url string) (containerURL string, err error) {
 
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")
 
 	urlList := strings.Split(url, "/")
 
-	if (urlList[0] == "docker.io") {
-		return "https://index.docker.io/v1/"
-	} else if (strings.Contains(urlList[0], "amazonaws")) {
-		return "https://" + urlList[0]
-	} else if (strings.Contains(urlList[0], "gcr.io")) {
-		return "https://" + urlList[0]
+	if urlList[0] == "docker.io" {
+		return "https://index.docker.io/v1/", nil
+	} else if strings.Contains(urlList[0], "amazonaws") {
+		return "https://" + urlList[0], nil
+	} else if strings.Contains(urlList[0], "gcr.io") {
+		return "https://" + urlList[0], nil
 	}
 
-	return fmt.Errorf("Incorrect image format")
+	return "", fmt.Errorf("Incorrect image format")
 }
-
 
 // Inject container secrets into the namespace
 func injectContainerImageSecrets(
 	kubeconfig string,
 	space string,
-	secretname, string,
-        username string,
+	secretname string,
+	username string,
 	password string,
 	image string) (err error) {
 
-	url, err := extractRegistryURL(image)
+	server, err := extractRegistryURL(image)
 	if err != nil {
 		zap.S().Errorf("Error while extracting registry URL from the image URL: %v", err)
 		return err
@@ -264,27 +274,28 @@ func injectContainerImageSecrets(
 		Password:   password,
 		Server:     server,
 		AppendHash: false,
-		Namespace:  namespace,
+		Namespace:  space,
 	}
 
 	// Validate the secretDockerRegistryOptions
 	err = secretDockerRegistryOptions.Validate()
 	if err != nil {
-		fmt.Println("Error Validating secret options: ", err)
-		return
+		zap.S().Errorf("Error Validating secret options: %v", err)
+		return err
 	}
 
 	// Create in-mem secretDockerRegistry using options.
 	secretDockerRegistry, err = createDockerRegistry(secretDockerRegistryOptions)
 
-
 	createOptions := metav1.CreateOptions{}
 	// Fire secret creation CoreV1 API.
-	secretDockerRegistry, err = clientset.CoreV1().Secrets(namespace).Create(context.TODO(), secretDockerRegistry, createOptions)
+	secretDockerRegistry, err = clientset.CoreV1().Secrets(space).Create(context.TODO(), secretDockerRegistry, createOptions)
 	if err != nil {
-		return
+		zap.S().Errorf("Error creating docker secrets: %v", err)
+		return err
 	}
 
+	return nil
 }
 
 func CreateApp(
@@ -325,11 +336,10 @@ func CreateApp(
 		return fmt.Errorf("Maximum App deploy limit reached!")
 	}
 
-
 	// If container secret info exists, create a secret in the k8s cluster.
-	if ( (secretname != nil) &&
-	     (username != nil)  &&
-	     (password != nil)) {
+	if ((secretname != "") &&
+	    (username != "") &&
+	    (password != "")) {
 		err = injectContainerImageSecrets(kubeconfig, space, secretname, username, password, image)
 		if err != nil {
 			zap.S().Errorf("Error while injecting the secrets object: %v", err)
