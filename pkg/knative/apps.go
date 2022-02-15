@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/platform9/fast-path/pkg/options"
+	"github.com/platform9/fast-path/pkg/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -221,17 +222,17 @@ func createDockerRegistry(so create.CreateSecretDockerRegistryOptions) (*corev1.
 
 func extractRegistryURL(url string) (containerURL string, err error) {
 
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, util.HTTPURL)
+	url = strings.TrimPrefix(url, util.HTTPSURL)
 
 	urlList := strings.Split(url, "/")
 
-	if urlList[0] == "docker.io" {
-		return "https://index.docker.io/v1/", nil
-	} else if strings.Contains(urlList[0], "amazonaws") {
-		return "https://" + urlList[0], nil
-	} else if strings.Contains(urlList[0], "gcr.io") {
-		return "https://" + urlList[0], nil
+	if urlList[0] == util.DockerURL {
+		return util.DockerServerURL, nil
+	} else if strings.Contains(urlList[0], util.AWSURL) {
+		return util.HTTPSURL + urlList[0], nil
+	} else if strings.Contains(urlList[0], util.GCRURL) {
+		return util.HTTPSURL + urlList[0], nil
 	}
 
 	return "", fmt.Errorf("Incorrect image format")
