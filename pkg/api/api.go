@@ -92,7 +92,7 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zap.S().Infof("App List, successfull. Space: %v", nameSpace)
+	zap.S().Infof("App List, successful. Space: %v", nameSpace)
 
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
@@ -109,6 +109,9 @@ type App struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	} `json:"envs"`
+	SecretName string `json:"secretname"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
 
 /*
@@ -175,7 +178,8 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		envVars = append(envVars, envVar)
 	}
 
-	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port)
+	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port,
+				app.SecretName, app.UserName, app.Password)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
@@ -240,7 +244,7 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zap.S().Infof("Get app by name successfull. Name: %v, Space: %v", appName, nameSpace)
+	zap.S().Infof("Get app by name successful. Name: %v, Space: %v", appName, nameSpace)
 
 	data := []byte(appList)
 	w.WriteHeader(http.StatusOK)
@@ -294,7 +298,7 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	zap.S().Infof("Delete app succesfull. Name: %v, Space: %v", deleteAppName, nameSpace)
+	zap.S().Infof("Delete app successful. Name: %v, Space: %v", deleteAppName, nameSpace)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -412,7 +416,7 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		zap.S().Infof("Login successfull. Existing-User: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, nameSpace)
+		zap.S().Infof("Login successful. Existing-User: %v, Email: %v, Space: %v", userInfo.NickName, userInfo.Email, nameSpace)
 	}
 	w.WriteHeader(http.StatusOK)
 }

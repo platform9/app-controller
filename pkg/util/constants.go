@@ -27,6 +27,14 @@ const (
 	MaxAppDeployStatusCode = 429
 	MaxAppDeployCount      = 7
 	MaxAppScaleCount       = 1
+
+	// Secret URL constants
+	HTTPURL   =  "http://"
+	HTTPSURL  =  "https://"
+	DockerURL =  "docker.io"
+	DockerServerURL =  "https://index.docker.io/v1/"
+	AWSURL    =  "amazonaws"
+	GCRURL    =  "gcr.io"
 )
 
 // Validate a regex.
