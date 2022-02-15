@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// User information structure.
 type UserInfo struct {
 	Name     string  `json:"name"`
 	Email    string  `json:"email"`
@@ -54,6 +55,7 @@ func New() *mux.Router {
 	return r
 }
 
+// Fetch all the apps running for a particular user.
 func getApp(w http.ResponseWriter, r *http.Request) {
 	zap.S().Info("***** Get Apps *****")
 	// Validate the token, and get claims.
@@ -101,6 +103,7 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// App structure.
 type App struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
@@ -110,13 +113,14 @@ type App struct {
 		Value string `json:"value"`
 	} `json:"envs"`
 	SecretName string `json:"secretname"`
-	UserName string `json:"username"`
-	Password string `json:"password"`
+	UserName   string `json:"username"`
+	Password   string `json:"password"`
 }
 
 /*
+-- CreateApp
 1. User fires appctl deploy command with name, image, token as bearer.
-2. Validate the token, get user info.
+2. Validate the token, get user info from claims.
 3. If token is valid,
 	4. Fetch Username - Namespace map in DB.
 	5. CreateApp using above fetched namespace.
@@ -179,7 +183,7 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port,
-				app.SecretName, app.UserName, app.Password)
+		app.SecretName, app.UserName, app.Password)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
@@ -201,6 +205,7 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// To get an app by name.
 func getAppByName(w http.ResponseWriter, r *http.Request) {
 
 	zap.S().Info("***** Get App by name *****")
@@ -253,6 +258,7 @@ func getAppByName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// To delete an app.
 func deleteApp(w http.ResponseWriter, r *http.Request) {
 	zap.S().Info("***** Delete App *****")
 
@@ -303,6 +309,7 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
+-- Login app.
 1. Obtain token from header.
 2. GetUserInfo after validating the token signature.
 3. Check if user exists in DB.
@@ -359,6 +366,7 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If user doesn't exist in the database, then create a namespace for user.
 	var NameSpace, createdNS string
 	if !UserExists {
 		zap.S().Info("User doesn't exist's in DB, starting creation of namespace.")
@@ -468,6 +476,7 @@ func GetNamespace(userInfo UserInfo) (string, error) {
 			zap.S().Errorf("DB Error: %v", errDB)
 			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
 		}
+
 		if userDB.Space != "" {
 			zap.S().Debugf("Namespace found is: %v", userDB.Space)
 			return userDB.Space, nil
@@ -478,6 +487,7 @@ func GetNamespace(userInfo UserInfo) (string, error) {
 			zap.S().Errorf("Get user info from DB. Error: %v", errDB)
 			return "", fmt.Errorf("Failed to get Namespace. Error: %v", errDB)
 		}
+
 		if userDB.Space != "" {
 			zap.S().Debugf("Namespace found is: %v", userDB.Space)
 			return userDB.Space, nil

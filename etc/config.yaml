@@ -1,15 +1,17 @@
+# This config.yaml should be placed at /etc/pf9/fast-path/config.yaml
+# Configure the values accordingly. 
 kubeconfig:
   file: "kc.yaml"      # Path to kubeconfig file of the cluster that hosts knative
 db:
-  user: "fastpath"     # User Name
-  password: "fastpath" # Password
-  name: "fastpath"     # Name of Database
-  host: "localhost"    # Host IP or URL on which mysql DB is hosted
-  port: "3306"         # DB port
+  user: "DBUSER"     # Database user Name
+  password: "DBPASSWORD" # Database password
+  name: "DBNAME"     # Name of Database
+  host: "DBURL"    # Host IP or URL on which mysql DB is hosted
+  port: "DBPORT"         # DB port
 constraints:
-  max-scale: "3"       # Constraint on replica count
-  max-app: "7"         # Constraint on maximum apps deploy count
+  max-scale: "1"       # Constraint on replica count of apps.
+  max-app: "10"         # Constraint on maximum apps deploy count by user.
 jwks:
-  url: "jwks-url"      # JWKS url of auth0 tenant.
+  url: "JWKS-URL"      # JWKS url of auth0 tenant.
 auth0:
-  client-id: "auth0-client-id" #Auth0 client-id of tenant.
+  client-id: "AUTH0-CLIENT-ID" #Auth0 client-id of tenant.
