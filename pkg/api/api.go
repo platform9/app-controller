@@ -298,7 +298,7 @@ func deleteApp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	zap.S().Infof("Delete app succesful. Name: %v, Space: %v", deleteAppName, nameSpace)
+	zap.S().Infof("Delete app successful. Name: %v, Space: %v", deleteAppName, nameSpace)
 	w.WriteHeader(http.StatusOK)
 }
 
