@@ -54,6 +54,7 @@ func main() {
 	cmd.Execute()
 }
 
+// Config file to read secrets like kubeconfig path, Database and auth0 credentials.
 const (
 	cfgFile = "/etc/pf9/fast-path/config.yaml"
 )

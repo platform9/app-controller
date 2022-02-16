@@ -407,6 +407,7 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	return nil
 }
 
+// Check if the apps deployed exceeds maxAppDeployCount.
 func maxAppDeployed(kubeconfig string, space string) (bool, error) {
 	get_apps, errMax := GetApps(kubeconfig, space)
 	if errMax != nil {
