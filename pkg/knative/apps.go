@@ -301,7 +301,7 @@ func injectContainerImageSecrets(
 
 func CreateApp(
 	kubeconfig string,
-	appName string,
+	appname string,
 	space string,
 	image string,
 	env []corev1.EnvVar,
@@ -338,16 +338,18 @@ func CreateApp(
 	}
 
 	// If container secret info exists, create a secret in the k8s cluster.
-	if ((secretname != "") &&
-	    (username != "") &&
+	if ((username != "") &&
 	    (password != "")) {
 		err = injectContainerImageSecrets(kubeconfig, space, secretname, username, password, image)
 		if err != nil {
 			zap.S().Errorf("Error while injecting the secrets object: %v", err)
 		}
+	} else {
+           // Secret name has no value where username and password don't exist.
+	   secretname = ""
 	}
 
-	service, err := constructService(appName, space, image, env, port, secretname)
+	service, err := constructService(appname, space, image, env, port, secretname)
 	if err != nil {
 		zap.S().Errorf("Error while creating the service object: %v", err)
 		return err
