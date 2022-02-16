@@ -112,9 +112,8 @@ type App struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	} `json:"envs"`
-	SecretName string `json:"secretname"`
-	UserName   string `json:"username"`
-	Password   string `json:"password"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
 
 /*
@@ -182,8 +181,9 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 		envVars = append(envVars, envVar)
 	}
 
+	// Use app name as a secret name.
 	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port,
-		app.SecretName, app.UserName, app.Password)
+				app.Name, app.UserName, app.Password)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)
@@ -343,7 +343,6 @@ func loginApp(w http.ResponseWriter, r *http.Request) {
 	//Database User object.
 	var userDB objects.User
 	que := db.Get()
-
 	// Check if user exists in DB.
 	var UserExists bool = false
 	if strings.Contains(userInfo.Sub, "github") {
