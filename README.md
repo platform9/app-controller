@@ -1,13 +1,13 @@
 ## `fast-path`
 
-A backend service that interacts with a Kubernetes cluster installed with knative serving components.
+A backend service that interacts with the underlying Kubernetes cluster using the Knative serving components.
 
 ## Pre-requisites
 To start the fast-path backend service, pre-requisites are:
 
-1. Linux (64 bit)
+1. Linux (Preferred)
 2. A kubernetes cluster installed with [knative serving components](https://platform9.com/blog/how-to-set-up-knative-serving-on-kubernetes/)
-3. MySQL Database to link to fast-path
+3. Link to MySQL Database (local/remote) that acts as data store for fast-path.
 
 ## Configurations
 The configurations for the service are set using `config.yaml`. Sample of `config.yaml` is present at [etc/config.yaml](etc/config.yaml)
@@ -15,7 +15,7 @@ The configurations for the service are set using `config.yaml`. Sample of `confi
 This config.yaml should be placed at `/etc/pf9/fast-path/config.yaml`, it contains: 
 
 ```
-# Path to kubeconfig file of the cluster that hosts knative
+# Path to the kubeconfig file of the underlying Kubernetes cluster that has Knative installed.
 1. kubeconfig path
 
 # Database name, username, password, URL, port. 
@@ -32,10 +32,14 @@ This config.yaml should be placed at `/etc/pf9/fast-path/config.yaml`, it contai
 
 Clone the repository, navigate to the cloned repository and download the dependencies using `go mod download`. Before building, ensure the `config.yaml` is configured accordingly and placed at required location.
 
-To build the fast-path binary, use the below command, fast-path binary is placed in `bin` directory
+To build the fast-path binary, use the below command, fast-path binary built using make is placed in `bin` directory.
 
 ```sh
+# Using make, prefered for linux OS.
 make build
+
+# Using go build and run.
+sudo go run cmd/main.go
 ```
 
 ## Run fast-path service
@@ -52,40 +56,58 @@ To run fast-path through binary, follow the below command:
 ./bin/fast-path
 ```
 
-### Using system service file
+### Using system service file (Preferred)
 To run fast-path as a system service, service file [fastpath.service](fastpath.service) should be place at `/etc/systemd/system/` directory and fast-path binary at `/usr/bin/fast-path/` directory. To start the service follow the below commands:
 
 ```sh
 # Start the fast-path service.
 sudo systemctl start fastpath.service
-
-# Check the status of fast-path service.
-sudo systemctl status fastpath.service
 ```
 
-Now, the fast-path service will be up an running.
+`fast-path` service will be now up and running, to check the latest status of service:
+
+```sh
+# Check the status of fast-path service.
+sudo systemctl status fastpath.service
+
+Sample Output:
+● fastpath.service - Fast Path Service
+   Loaded: loaded (/etc/systemd/system/fastpath.service; disabled; vendor preset: enabled)
+   Active: active (running) since Mon 2022-02-21 10:39:19 UTC; 12s ago
+ Main PID: 9144 (fast-path)
+    Tasks: 16
+   Memory: 9.4M
+      CPU: 1.823s
+   CGroup: /system.slice/fastpath.service
+           └─9144 /usr/bin/fast-path/fast-path
+
+Feb 21 10:39:19 platform9 systemd[1]: Started Fast Path Service.
+``` 
+
 
 * Logs for fast-path service can be found at `/var/log/pf9/fast-path/fast-path.log`
 
 ## `fast-path` APIs
-To interace with fast-path service, fast-path APIs can be used and an auth0 token is required. 
+To interact with the fast-path service, fast-path APIs are needed. This requires an Auth0 token.
 
 ```sh
 # To get list of apps for a user.
-curl --request GET --url 'http://127.0.0.1:6112/v1/apps'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" | jq .
+curl --request GET --url 'http://<service endpoint>:6112/v1/apps'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" | jq .
 
 # To describe an app by name.
-curl --request GET --url 'http://127.0.0.1:6112/v1/apps/<name>'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" | jq .
+curl --request GET --url 'http://<service endpoint>:6112/v1/apps/<name>'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" | jq .
 
 # To create an app, where name is app name, image is container image of app, envs is environment variables with key:value pairs list, port is container port to access app.
-curl --request POST --url 'http://127.0.0.1:6112/v1/apps'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" --data '{"name": "<appname>", "image": "<container image>", "envs": [{ "key":"<key>", "value":"<value>"}], "port": "<port>"}'
+curl --request POST --url 'http://<service endpoint>:6112/v1/apps'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}" --data '{"name": "<appname>", "image": "<container image>", "envs": [{ "key":"<key>", "value":"<value>"}], "port": "<port>"}'
 
 # To delete an app by name.
-curl --request DELETE --url 'http://127.0.0.1:6112/v1/apps/<name>'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}"
+curl --request DELETE --url 'http://<service endpoint>:6112/v1/apps/<name>'  --header "Authorization: Bearer ${AUTH0_IDTOKEN}"
+
+- If service is deployed locally, then can replace service endpoint with 127.0.0.1
 ```
 
-## Fetch auth0 token
-Auth0 token can be fetched using auth0 apis. There are three major steps to get the [auth0 id token](https://auth0.com/docs/quickstart/native/device).
+## Fetching Auth0 token
+Auth0 token can be fetched using Auth0 APIs. There are 3 steps to get the [auth0 id token](https://auth0.com/docs/quickstart/native/device).
 
 1. Request device code
 2. Device activation
@@ -135,7 +157,7 @@ curl --request POST \
   --data 'client_id=YOUR_CLIENT_ID'
 ```
 
-The received token will containe both access_token, id_token. We use auth0 `id_token` to authorize the user through fast-path. To access the fast-path APIs seamlessly export the auth0 `id_token`. 
+The response will contain both, access_token and id_token. We use auth0 `id_token` to authorize the user through fast-path. To access the fast-path APIs seamlessly export the auth0 `id_token`. 
 
 ```sh
 # Replace the <id_token> with the id_token value received from request auth0 token.
