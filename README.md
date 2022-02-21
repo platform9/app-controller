@@ -7,7 +7,7 @@ To start the fast-path backend service, pre-requisites are:
 
 1. Linux (64 bit)
 2. A kubernetes cluster installed with [knative serving components](https://platform9.com/blog/how-to-set-up-knative-serving-on-kubernetes/)
-3. MySQL Database to link fast-path
+3. MySQL Database to link to fast-path
 
 ## Configurations
 The configurations for the service are set using `config.yaml`. Sample of `config.yaml` is present at [etc/config.yaml](etc/config.yaml)
@@ -95,7 +95,7 @@ Auth0 token can be fetched using auth0 apis. There are three major steps to get 
 * [auth0 native application](https://auth0.com/docs/get-started/auth0-overview/create-applications/native-apps)
 * [auth0 device code setup](https://auth0.com/docs/quickstart/native/device#prerequisites)
 
-* [**Request device code**](https://auth0.com/docs/quickstart/native/device#request-device-code)
+#### [**Request device code**](https://auth0.com/docs/quickstart/native/device#request-device-code)
 
 ```sh
 # Request device code 
@@ -104,11 +104,10 @@ curl --request POST \
   --header 'content-type: application/x-www-form-urlencoded' \
   --data 'client_id=YOUR_CLIENT_ID' \
   --data 'scope=YOUR_SCOPE' 
-
-- Basic sample scope is 'scope=profile email openid'
 ```
+- Basic sample scope is 'scope=profile email openid'
 
-* **Device activation**
+#### **Device activation**
 Upon request for device code, the [sample device code](https://auth0.com/docs/quickstart/native/device#device-code-response) response will be:
 ```sh
 {
@@ -121,9 +120,10 @@ Upon request for device code, the [sample device code](https://auth0.com/docs/qu
 }
 ```
 
-Then complete the device activation in browser using `verification_url_complete` obtained from device code response. 
+Then open `verification_url_complete` in browser, obtained from device code response to complete the device activation. 
 
-* [**Request auth0 token**](https://auth0.com/docs/quickstart/native/device#example-request-token-post-to-token-url)
+#### [**Request auth0 token**](https://auth0.com/docs/quickstart/native/device#example-request-token-post-to-token-url)
+
 Once device activation is successful, then request for auth0 token using below command.
 ```sh
 # Use the device code received from device code response
@@ -138,6 +138,6 @@ curl --request POST \
 The received token will containe both access_token, id_token. We use auth0 `id_token` to authorize the user through fast-path. To access the fast-path APIs seamlessly export the auth0 `id_token`. 
 
 ```sh
-Replace the <id_token> with the id_token value received from request auth0 token.
+# Replace the <id_token> with the id_token value received from request auth0 token.
 export AUTH0_IDTOKEN="<id_token>"
 ```
