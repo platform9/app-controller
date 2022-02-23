@@ -42,6 +42,17 @@ make build
 sudo go run cmd/main.go
 ```
 
+### For DB Schema changes or first time builds
+If DB Schema is changed or for first time builds, then to generate updated `pkgs/db/migrations_generated.go`, follow the below commands, before building the binary.
+
+```
+go get -u 'go get -u github.com/go-bindata/go-bindata/...'
+
+# To set the path where go-bindata binary is installed.
+export PATH=${PATH}:${GOPATH}/bin
+cd pkg/db; go generate; cd -
+```
+
 ## Run fast-path service
 
 `fast-path` service can be run using binary and as a system service on linux machine.
