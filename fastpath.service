@@ -8,6 +8,7 @@ Type=simple
 Restart=always
 RestartSec=5s
 ExecStartPre=/usr/bin/fast-path/fast-path migrate
+ExecStartPre=/usr/bin/fast-path/fast-path version
 ExecStart=/usr/bin/fast-path/fast-path
 
 [Install]
