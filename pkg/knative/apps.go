@@ -40,21 +40,8 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	// Call the knative API
-	appsList, err := client.ListServices(ctx)
-	if err != nil {
-		zap.S().Errorf("Error while listing apps: %v", err)
-		return "", err
-	}
-
-	// Encode the apps list in json format
-	jsonAppList, err := json.Marshal(appsList)
-	if err != nil {
-		zap.S().Errorf("Error while json marshalling the apps list: %v", err)
-		return "", err
-	}
-
-	return string(jsonAppList), nil
+	// Call the knative API wrapper
+	return listAllApps(client, ctx)
 }
 
 // Get app by name
@@ -338,15 +325,15 @@ func CreateApp(
 	}
 
 	// If container secret info exists, create a secret in the k8s cluster.
-	if ((username != "") &&
-	    (password != "")) {
+	if (username != "") &&
+		(password != "") {
 		err = injectContainerImageSecrets(kubeconfig, space, secretname, username, password, image)
 		if err != nil {
 			zap.S().Errorf("Error while injecting the secrets object: %v", err)
 		}
 	} else {
-           // Secret name has no value where username and password don't exist.
-	   secretname = ""
+		// Secret name has no value where username and password don't exist.
+		secretname = ""
 	}
 
 	service, err := constructService(appname, space, image, env, port, secretname)
