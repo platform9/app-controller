@@ -3,6 +3,7 @@ package knative
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"gotest.tools/assert"
@@ -103,5 +104,33 @@ func TestGetAppByName(t *testing.T) {
 		assert.Assert(t, app == "", "no service should be returned")
 		assert.ErrorContains(t, err, "not found")
 		assert.ErrorContains(t, err, nonExistentApp)
+	})
+}
+
+func TestCreateApp(t *testing.T) {
+	serving, client := setup()
+	newApp := "new-app"
+	unknownApp := "unknown-app"
+	newDeployedApp := newService(newApp)
+	unknownService := newService(unknownApp)
+	serving.AddReactor("create", "services",
+		func(a clienttesting.Action) (bool, runtime.Object, error) {
+			assert.Equal(t, testNamespace, a.GetNamespace())
+			name := a.(clienttesting.CreateAction).GetObject().(metav1.Object).GetName()
+			if name == newDeployedApp.Name {
+				newDeployedApp.Generation = 2
+				return true, newDeployedApp, nil
+			}
+			return true, nil, fmt.Errorf("error while creating service %s", name)
+		})
+	t.Run("reate a service without errors", func(t *testing.T) {
+		err := createAppKnative(context.Background(), client, newDeployedApp)
+		assert.NilError(t, err)
+		assert.Equal(t, newDeployedApp.Generation, int64(2))
+		assert.Equal(t, newDeployedApp.Name, newApp)
+	})
+	t.Run("simulate an error", func(t *testing.T) {
+		err := createAppKnative(context.Background(), client, unknownService)
+		assert.ErrorContains(t, err, "unknown")
 	})
 }
