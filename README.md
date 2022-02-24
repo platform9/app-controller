@@ -48,7 +48,7 @@ If DB Schema is changed or for first time builds, then to generate updated `pkgs
 ```
 go get -u 'go get -u github.com/go-bindata/go-bindata/...'
 
-# To set the path where go-bindata binary is installed.
+# Set the path where go-bindata binary is installed.
 export PATH=${PATH}:${GOPATH}/bin
 cd pkg/db; go generate; cd -
 ```
