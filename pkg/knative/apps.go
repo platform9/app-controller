@@ -61,21 +61,9 @@ func GetAppByName(kubeconfig string, space string, appName string) (apps_list st
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	// Call the knative API to get service by Name
-	appGetByName, err := client.GetService(ctx, appName)
-	if err != nil {
-		zap.S().Errorf("Error while listing app: %v", err)
-		return "", err
-	}
+	// Call the knative API wrapper to get service by Name
+	return getAppByName(client, ctx, appName)
 
-	// Encode the app info in json format
-	jsonApp, err := json.Marshal(appGetByName)
-	if err != nil {
-		zap.S().Errorf("Error while json marshalling the app: %v", err)
-		return "", err
-	}
-
-	return string(jsonApp), nil
 }
 
 func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
@@ -146,18 +134,6 @@ func serviceExists(ctx context.Context, client clientservingv1.KnServingClient, 
 		return false, err
 	}
 	return true, nil
-}
-
-func createAppKnative(
-	ctx context.Context,
-	client clientservingv1.KnServingClient,
-	service *servingv1.Service) (err error) {
-
-	err = client.CreateService(ctx, service)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // handleDockerCfgJSONContent serializes a ~/.docker/config.json file
@@ -384,14 +360,8 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	*/
 	var timeout = time.Duration(0)
 
-	// Call the knative API to delete service by Name
-	errdelete := client.DeleteService(ctx, appName, timeout)
-	if errdelete != nil {
-		zap.S().Errorf("Error while deleting app: %v", errdelete)
-		return err
-	}
-
-	return nil
+	// Call the knative API wrapper to delete service by Name
+	return deleteApp(client, ctx, appName, timeout)
 }
 
 // Check if the apps deployed exceeds maxAppDeployCount.
