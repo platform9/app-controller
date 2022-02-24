@@ -21,7 +21,6 @@ var dbInstance *Querier
 //var pkgDBInstance *Querier
 var onceDB sync.Once
 
-
 // Get returns handle to DB
 //go:generate go-bindata -pkg db -o migrations_generated.go schema/
 func Get() *Querier {
@@ -64,7 +63,7 @@ func (db *Querier) DropData() {
 		panic(err)
 	}
 
-	for _, t := range []string{"repos", "subs"} {
+	for _, t := range []string{"users"} {
 		stmt, err := tx.Prepare(fmt.Sprintf("delete from %s", t))
 		if err != nil {
 			panic(err)

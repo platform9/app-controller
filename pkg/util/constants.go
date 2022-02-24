@@ -48,6 +48,9 @@ const (
 	DockerServerURL = "https://index.docker.io/v1/"
 	AWSURL          = "amazonaws"
 	GCRURL          = "gcr.io"
+
+	// fast-path version
+	Version = "fast-path version: v1.0"
 )
 
 //Validate a regex.

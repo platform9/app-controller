@@ -23,6 +23,7 @@ func readEnv() {
 
 func run(*cobra.Command, []string) {
 	zap.S().Info("Starting fast-path...")
+	zap.S().Infof("Version of fast-path being used is: %s", util.Version)
 	router := api.New()
 	srv := &http.Server{
 		Handler: router,
@@ -80,7 +81,18 @@ func buildCmds() *cobra.Command {
 			}
 		},
 	}
+
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Current version of fast-path being used",
+		Long:  "Current version of fast-path being used",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(util.Version)
+		},
+	}
+
 	rootCmd.AddCommand(migrateCmd)
+	rootCmd.AddCommand(versionCmd)
 
 	return rootCmd
 }
