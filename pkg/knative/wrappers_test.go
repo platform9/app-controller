@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clienttesting "k8s.io/client-go/testing"
@@ -69,5 +70,38 @@ func TestListAppsEmpty(t *testing.T) {
 		if len(appInfo.Items) != 0 {
 			t.Errorf("expected 0 length, got non zero: %d\n", len(appInfo.Items))
 		}
+	})
+}
+
+func TestGetAppByName(t *testing.T) {
+	serving, client := setup()
+	appName := "test-service-that-exists"
+	nonExistentApp := "service-that-doesnot-exist"
+	serving.AddReactor("get", "services", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		service := newService(appName)
+		name := action.(clienttesting.GetAction).GetName()
+
+		assert.Assert(t, name != "")
+		assert.Equal(t, testNamespace, action.GetNamespace())
+		if name == appName {
+			return true, service, nil
+		}
+		return true, nil, errors.NewNotFound(servingv1.Resource("service"), name)
+	})
+	t.Run("get a service that is present", func(t *testing.T) {
+		app, err := getAppByName(client, context.Background(), appName)
+		assert.NilError(t, err, nil)
+		var appDetails servingv1.Service
+		if unMarErr := json.Unmarshal([]byte(app), &appDetails); unMarErr != nil {
+			t.Errorf("error unmarshaling %s\n", unMarErr.Error())
+		}
+		assert.Equal(t, appName, appDetails.Name, "service name should be equal")
+	})
+
+	t.Run("get a service that does not exist", func(t *testing.T) {
+		app, err := getAppByName(client, context.Background(), nonExistentApp)
+		assert.Assert(t, app == "", "no service should be returned")
+		assert.ErrorContains(t, err, "not found")
+		assert.ErrorContains(t, err, nonExistentApp)
 	})
 }
