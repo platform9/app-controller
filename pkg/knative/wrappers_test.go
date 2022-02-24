@@ -134,3 +134,42 @@ func TestCreateApp(t *testing.T) {
 		assert.ErrorContains(t, err, "unknown")
 	})
 }
+
+func TestDeleteApp(t *testing.T) {
+	serving, client := setup()
+	const (
+		serviceName            = "test-service"
+		nonExistingServiceName = "no-service"
+	)
+	serving.AddReactor("get", "services",
+		func(a clienttesting.Action) (bool, runtime.Object, error) {
+			name := a.(clienttesting.GetAction).GetName()
+			if name == serviceName {
+				// Don't handle existing service, just continue to next
+				return false, nil, nil
+			}
+			return true, nil, errors.NewNotFound(servingv1.Resource("service"), name)
+		})
+
+	serving.AddReactor("delete", "services",
+		func(a clienttesting.Action) (bool, runtime.Object, error) {
+			name := a.(clienttesting.DeleteAction).GetName()
+
+			assert.Assert(t, name != "")
+			assert.Equal(t, testNamespace, a.GetNamespace())
+			if name == serviceName {
+				return true, nil, nil
+			}
+			return false, nil, nil
+		})
+	t.Run("delete existing service returns no error", func(t *testing.T) {
+		err := deleteApp(client, context.Background(), serviceName, 0)
+		assert.NilError(t, err)
+	})
+	t.Run("trying to delete non-existing service returns error", func(t *testing.T) {
+		err := client.DeleteService(context.Background(), nonExistingServiceName, 0)
+		println(err.Error())
+		assert.ErrorContains(t, err, "not found")
+		assert.ErrorContains(t, err, nonExistingServiceName)
+	})
+}
