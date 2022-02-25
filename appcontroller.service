@@ -9,7 +9,7 @@ Restart=always
 RestartSec=5s
 ExecStartPre=/usr/bin/app-controller/app-controller migrate
 ExecStartPre=/usr/bin/app-controller/app-controller version
-ExecStart=/usr/bin/app-controller
+ExecStart=/usr/bin/app-controller/app-controller
 
 [Install]
 WantedBy=multi-user.target
