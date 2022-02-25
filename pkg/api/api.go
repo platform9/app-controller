@@ -17,11 +17,11 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/platform9/fast-path/pkg/db"
-	"github.com/platform9/fast-path/pkg/knative"
-	"github.com/platform9/fast-path/pkg/objects"
-	"github.com/platform9/fast-path/pkg/options"
-	"github.com/platform9/fast-path/pkg/util"
+	"github.com/platform9/app-controller/pkg/db"
+	"github.com/platform9/app-controller/pkg/knative"
+	"github.com/platform9/app-controller/pkg/objects"
+	"github.com/platform9/app-controller/pkg/options"
+	"github.com/platform9/app-controller/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 
 	"context"
@@ -43,7 +43,7 @@ type UserInfo struct {
 	Exp      float64 `json:"exp"`
 }
 
-// New returns new API router for fast-path
+// New returns new API router for app-controller
 func New() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/v1/apps", getApp).Methods("GET")
@@ -183,7 +183,7 @@ func createApp(w http.ResponseWriter, r *http.Request) {
 
 	// Use app name as a secret name.
 	err = knative.CreateApp(util.Kubeconfig, app.Name, nameSpace, app.Image, envVars, app.Port,
-				app.Name, app.UserName, app.Password)
+		app.Name, app.UserName, app.Password)
 	if err != nil {
 		if err.Error() == util.MaxAppDeployError {
 			zap.S().Errorf("Maximum App deployed limit reached!! Namespace: %v", nameSpace)

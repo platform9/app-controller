@@ -22,14 +22,14 @@ var (
 
 //Logger Variables.
 var (
-	//Logs location: /var/log/pf9/fast-path/fast-path.log
+	//Logs location: /var/log/pf9/app-controller/app-controller.log
 	logDir = "/var/log/"
 	//Pf9Dir is the base Pf9Dir to store logs.
 	Pf9Dir = filepath.Join(logDir, "pf9")
-	//FastPathLogDir - Base Dir to store fast-path logs.
-	FastPathLogDir = filepath.Join(Pf9Dir, "fast-path")
-	//FastPathLog represents location of the log.
-	FastPathLog = filepath.Join(FastPathLogDir, "fast-path.log")
+	//AppControllerLogDir - Base Dir to store app-controller logs.
+	AppControllerLogDir = filepath.Join(Pf9Dir, "app-controller")
+	//AppControllerLog represents location of the log.
+	AppControllerLog = filepath.Join(AppControllerLogDir, "app-controller.log")
 )
 
 const (
@@ -49,8 +49,8 @@ const (
 	AWSURL          = "amazonaws"
 	GCRURL          = "gcr.io"
 
-	// fast-path version
-	Version = "fast-path version: v1.0"
+	// app-controller version
+	Version = "app-controller version: v1.0"
 )
 
 //Validate a regex.

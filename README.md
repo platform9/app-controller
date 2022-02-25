@@ -1,18 +1,18 @@
-## `fast-path`
+## `app-controller`
 
 A backend service that interacts with the underlying Kubernetes cluster using the Knative serving components.
 
 ## Pre-requisites
-To start the fast-path backend service, pre-requisites are:
+To start the app-controller backend service, pre-requisites are:
 
 1. Linux (Preferred)
 2. A kubernetes cluster installed with [knative serving components](https://platform9.com/blog/how-to-set-up-knative-serving-on-kubernetes/)
-3. Link to MySQL Database (local/remote) that acts as data store for fast-path.
+3. Link to MySQL Database (local/remote) that acts as data store for app-controller.
 
 ## Configurations
 The configurations for the service are set using `config.yaml`. Sample of `config.yaml` is present at [etc/config.yaml](etc/config.yaml)
 
-This config.yaml should be placed at `/etc/pf9/fast-path/config.yaml`, it contains: 
+This config.yaml should be placed at `/etc/pf9/app-controller/config.yaml`, it contains: 
 
 ```
 # Path to the kubeconfig file of the underlying Kubernetes cluster that has Knative installed.
@@ -28,11 +28,11 @@ This config.yaml should be placed at `/etc/pf9/fast-path/config.yaml`, it contai
 4. constraints (optional)
 ```
 
-## Build fast-path
+## Build app-controller
 
 Clone the repository, navigate to the cloned repository and download the dependencies using `go mod download`. Before building, ensure the `config.yaml` is configured accordingly and placed at required location.
 
-To build the fast-path binary, use the below command, fast-path binary built using make is placed in `bin` directory.
+To build the app-controller binary, use the below command, app-controller binary built using make is placed in `bin` directory.
 
 ```sh
 # Using make, prefered for linux OS.
@@ -53,53 +53,53 @@ export PATH=${PATH}:${GOPATH}/bin
 cd pkg/db; go generate; cd -
 ```
 
-## Run fast-path service
+## Run app-controller service
 
-`fast-path` service can be run using binary and as a system service on linux machine.
+`app-controller` service can be run using binary and as a system service on linux machine.
 
 ### Using binary
-To run fast-path through binary, follow the below command:
+To run app-controller through binary, follow the below command:
 ```sh
 # Initialize and upgrade database.
-./bin/fast-path migrate
+./bin/app-controller migrate
 
-# Start the fast-path service.
-./bin/fast-path
+# Start the app-controller service.
+./bin/app-controller
 ```
 
 ### Using system service file (Preferred)
-To run fast-path as a system service, service file [fastpath.service](fastpath.service) should be place at `/etc/systemd/system/` directory and fast-path binary at `/usr/bin/fast-path/` directory. To start the service follow the below commands:
+To run app-controller as a system service, service file [appcontroller.service](appcontroller.service) should be place at `/etc/systemd/system/` directory and app-controller binary at `/usr/bin/app-controller/` directory. To start the service follow the below commands:
 
 ```sh
-# Start the fast-path service.
-sudo systemctl start fastpath.service
+# Start the app-controller service.
+sudo systemctl start appcontroller.service
 ```
 
-`fast-path` service will be now up and running, to check the latest status of service:
+`app-controller` service will be now up and running, to check the latest status of service:
 
 ```sh
-# Check the status of fast-path service.
-sudo systemctl status fastpath.service
+# Check the status of app-controller service.
+sudo systemctl status appcontroller.service
 
 Sample Output:
-● fastpath.service - Fast Path Service
-   Loaded: loaded (/etc/systemd/system/fastpath.service; disabled; vendor preset: enabled)
+● appcontroller.service - App Controller Service
+   Loaded: loaded (/etc/systemd/system/appcontroller.service; disabled; vendor preset: enabled)
    Active: active (running) since Mon 2022-02-21 10:39:19 UTC; 12s ago
- Main PID: 9144 (fast-path)
+ Main PID: 9144 (app-controller)
     Tasks: 16
    Memory: 9.4M
       CPU: 1.823s
-   CGroup: /system.slice/fastpath.service
-           └─9144 /usr/bin/fast-path/fast-path
+   CGroup: /system.slice/appcontroller.service
+           └─9144 /usr/bin/app-controller/app-controller
 
-Feb 21 10:39:19 platform9 systemd[1]: Started Fast Path Service.
+Feb 21 10:39:19 platform9 systemd[1]: Started App Controller Service.
 ``` 
 
 
-* Logs for fast-path service can be found at `/var/log/pf9/fast-path/fast-path.log`
+* Logs for app-controller service can be found at `/var/log/pf9/app-controller/app-controller.log`
 
-## `fast-path` APIs
-To interact with the fast-path service, fast-path APIs are needed. This requires an Auth0 token.
+## `app-controller` APIs
+To interact with the app-controller service, app-controller APIs are needed. This requires an Auth0 token.
 
 ```sh
 # To get list of apps for a user.
@@ -168,7 +168,7 @@ curl --request POST \
   --data 'client_id=YOUR_CLIENT_ID'
 ```
 
-The response will contain both, access_token and id_token. We use auth0 `id_token` to authorize the user through fast-path. To access the fast-path APIs seamlessly export the auth0 `id_token`. 
+The response will contain both, access_token and id_token. We use auth0 `id_token` to authorize the user through app-controller. To access the app-controller APIs seamlessly export the auth0 `id_token`. 
 
 ```sh
 # Replace the <id_token> with the id_token value received from request auth0 token.

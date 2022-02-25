@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/platform9/fast-path/pkg/util"
+	"github.com/platform9/app-controller/pkg/util"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -19,9 +19,9 @@ func createDirectoryIfNotExists() error {
 			return errdir
 		}
 	}
-	// Create FastPathLogDir.
-	if _, err = os.Stat(util.FastPathLogDir); os.IsNotExist(err) {
-		errlogdir := os.Mkdir(util.FastPathLogDir, os.ModePerm)
+	// Create AppControllerLogDir.
+	if _, err = os.Stat(util.AppControllerLogDir); os.IsNotExist(err) {
+		errlogdir := os.Mkdir(util.AppControllerLogDir, os.ModePerm)
 		if errlogdir != nil {
 			return errlogdir
 		}
@@ -40,16 +40,16 @@ func fileConfig() zapcore.Encoder {
 }
 
 func Logger() error {
-	//Create the Pf9Dir, FastPathLogDir directory to store logs.
+	//Create the Pf9Dir, AppControllerLogDir directory to store logs.
 	err := createDirectoryIfNotExists()
 	if err != nil {
 		return fmt.Errorf("Failed to create Director. \nError is: %s", err)
 	}
 
-	// Open/Create the fast-path.log file.
-	file, err := os.OpenFile(util.FastPathLog, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	// Open/Create the app-controller.log file.
+	file, err := os.OpenFile(util.AppControllerLog, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("Couldn't open the log file: %s. \nError is: %s", util.FastPathLog, err)
+		return fmt.Errorf("Couldn't open the log file: %s. \nError is: %s", util.AppControllerLog, err)
 	}
 
 	core := zapcore.NewCore(fileConfig(), zapcore.AddSync(file), zapcore.DebugLevel)

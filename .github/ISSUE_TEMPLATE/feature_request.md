@@ -5,10 +5,10 @@ title: ''
 ---
 
 ### Feature request
-<!--A clear and concise description of what the feature is. Ex. I'm expecting the fast-path to work [...]-->
+<!--A clear and concise description of what the feature is. Ex. I'm expecting the app-controller to work [...]-->
 
 ### Usecase
-<!--A clear and concise description of usecase you've considered, fast-path to support.-->
+<!--A clear and concise description of usecase you've considered, app-controller to support.-->
 
 ### Describe the solution expecting
 <!--A clear and concise description of what you want to happen.-->

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/platform9/fast-path/pkg/options"
-	"github.com/platform9/fast-path/pkg/util"
+	"github.com/platform9/app-controller/pkg/options"
+	"github.com/platform9/app-controller/pkg/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

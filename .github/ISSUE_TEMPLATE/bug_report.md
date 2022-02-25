@@ -16,8 +16,8 @@ title: ''
 ### Screenshots
 <!--If applicable, add screenshots to help explain your problem. -->
 
-### fast-path version
-<!--Please specify the fast-path version being used-->
+### app-controller version
+<!--Please specify the app-controller version being used-->
 
 ### Desktop 
 - OS:

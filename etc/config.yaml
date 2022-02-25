@@ -1,4 +1,4 @@
-# This config.yaml should be placed at /etc/pf9/fast-path/config.yaml
+# This config.yaml should be placed at /etc/pf9/app-controller/config.yaml
 # Configure the values accordingly. 
 kubeconfig:
   file: "kc.yaml"      # Path to kubeconfig file of the cluster that hosts knative

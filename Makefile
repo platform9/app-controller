@@ -8,8 +8,8 @@ SHELL := /usr/bin/env bash
 GITHASH := $(shell git rev-parse --short HEAD)
 BIN_DIR := $(shell pwd)/bin
 CMD_DIR := $(shell pwd)/cmd
-BIN := fast-path
-REPO := fast-path
+BIN := app-controller
+REPO := app-controller
 LDFLAGS := ""
 
 .PHONY: clean format test build
