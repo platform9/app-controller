@@ -1,4 +1,4 @@
-module github.com/platform9/fast-path
+module github.com/platform9/app-controller
 
 go 1.17
 

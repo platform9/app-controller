@@ -1,0 +1,15 @@
+# Add the app-controller binary in /usr/bin/app-controller/ directory.
+# Add this service file to /etc/systemd/system/ directory.
+[Unit]
+Description=App Controller Service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+ExecStartPre=/usr/bin/app-controller/app-controller migrate
+ExecStartPre=/usr/bin/app-controller/app-controller version
+ExecStart=/usr/bin//app-controller
+
+[Install]
+WantedBy=multi-user.target

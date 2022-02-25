@@ -6,7 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 
-	"github.com/platform9/fast-path/pkg/objects"
+	"github.com/platform9/app-controller/pkg/objects"
 )
 
 // AddUser adds user to database

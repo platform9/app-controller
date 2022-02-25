@@ -5,7 +5,7 @@ import (
 	// MySQL drivers
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/platform9/fast-path/pkg/options"
+	"github.com/platform9/app-controller/pkg/options"
 
 	"database/sql"
 	"sync"

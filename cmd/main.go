@@ -8,10 +8,10 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/platform9/fast-path/pkg/api"
-	"github.com/platform9/fast-path/pkg/db"
-	"github.com/platform9/fast-path/pkg/log"
-	"github.com/platform9/fast-path/pkg/util"
+	"github.com/platform9/app-controller/pkg/api"
+	"github.com/platform9/app-controller/pkg/db"
+	"github.com/platform9/app-controller/pkg/log"
+	"github.com/platform9/app-controller/pkg/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -22,8 +22,8 @@ func readEnv() {
 }
 
 func run(*cobra.Command, []string) {
-	zap.S().Info("Starting fast-path...")
-	zap.S().Infof("Version of fast-path being used is: %s", util.Version)
+	zap.S().Info("Starting app-controller...")
+	zap.S().Infof("Version of app-controller being used is: %s", util.Version)
 	router := api.New()
 	srv := &http.Server{
 		Handler: router,
@@ -57,15 +57,15 @@ func main() {
 
 // Config file to read secrets like kubeconfig path, Database and auth0 credentials.
 const (
-	cfgFile = "/etc/pf9/fast-path/config.yaml"
+	cfgFile = "/etc/pf9/app-controller/config.yaml"
 )
 
 func buildCmds() *cobra.Command {
 	cobra.OnInitialize(initCfg)
 	rootCmd := &cobra.Command{
-		Use:   "fast-path",
-		Short: "fast-path is a service to interact knative kubernetes clusters",
-		Long:  "fast-path is a service to interact knative kubernetes clusters",
+		Use:   "app-controller",
+		Short: "app-controller is a service to interact knative kubernetes clusters",
+		Long:  "app-controller is a service to interact knative kubernetes clusters",
 		Run:   run,
 	}
 
@@ -84,8 +84,8 @@ func buildCmds() *cobra.Command {
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
-		Short: "Current version of fast-path being used",
-		Long:  "Current version of fast-path being used",
+		Short: "Current version of app-controller being used",
+		Long:  "Current version of app-controller being used",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(util.Version)
 		},
