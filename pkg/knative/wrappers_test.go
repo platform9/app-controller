@@ -151,6 +151,7 @@ func TestDeleteApp(t *testing.T) {
 			return true, nil, errors.NewNotFound(servingv1.Resource("service"), name)
 		})
 
+	// not exactly necessary, just tests the namespace
 	serving.AddReactor("delete", "services",
 		func(a clienttesting.Action) (bool, runtime.Object, error) {
 			name := a.(clienttesting.DeleteAction).GetName()
