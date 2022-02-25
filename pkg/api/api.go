@@ -21,7 +21,7 @@ import (
 	"github.com/platform9/app-controller/pkg/knative"
 	"github.com/platform9/app-controller/pkg/objects"
 	"github.com/platform9/app-controller/pkg/options"
-	"github.com/platform9app-controller/pkg/util"
+	"github.com/platform9/app-controller/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 
 	"context"
