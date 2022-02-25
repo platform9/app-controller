@@ -50,7 +50,7 @@ const (
 	GCRURL          = "gcr.io"
 
 	// app-controller version
-	Version = "app-controller version: v1.0"
+	Version = "app-controller version: v1.1"
 )
 
 //Validate a regex.
