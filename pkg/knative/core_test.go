@@ -47,9 +47,10 @@ func TestListAllApps(t *testing.T) {
 		if unmarshalErr != nil {
 			t.Errorf("error parsing json response\n%s\n", unmarshalErr.Error())
 		}
-		if len(appInfo.Items) != 3 {
-			t.Errorf("expected %d items got %d", 3, len(appInfo.Items))
-		}
+		assert.Assert(t, len(appInfo.Items) == 3)
+		assert.Equal(t, appInfo.Items[0].Name, "service-1")
+		assert.Equal(t, appInfo.Items[1].Name, "service-2")
+		assert.Equal(t, appInfo.Items[2].Name, "service-3")
 	})
 }
 
@@ -123,7 +124,7 @@ func TestCreateApp(t *testing.T) {
 			}
 			return true, nil, fmt.Errorf("error while creating service %s", name)
 		})
-	t.Run("reate a service without errors", func(t *testing.T) {
+	t.Run("create a service without errors", func(t *testing.T) {
 		err := createAppKnative(context.Background(), client, newDeployedApp)
 		assert.NilError(t, err)
 		assert.Equal(t, newDeployedApp.Generation, int64(2))
