@@ -1,6 +1,36 @@
+# Binaries for programs, plugins, bin.
+#####################################
 bin
 build
+fast-path*
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test binary
+*.test
+
+# IDEs generated files #
+########################
 .vscode
+.idea
+
+# Custom #
+########################
 .env
-fast-path
+
+# Vim swap files #
+##################
 .swp

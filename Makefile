@@ -14,8 +14,9 @@ LDFLAGS := ""
 
 .PHONY: clean format test build
 
+default: clean format test build
+
 format:
-	gofmt -w -s *.go
 	gofmt -w -s */*.go
 
 clean:
