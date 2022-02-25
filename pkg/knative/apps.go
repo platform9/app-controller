@@ -40,21 +40,8 @@ func GetApps(kubeconfig string, space string) (apps_list string, err error) {
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	// Call the knative API
-	appsList, err := client.ListServices(ctx)
-	if err != nil {
-		zap.S().Errorf("Error while listing apps: %v", err)
-		return "", err
-	}
-
-	// Encode the apps list in json format
-	jsonAppList, err := json.Marshal(appsList)
-	if err != nil {
-		zap.S().Errorf("Error while json marshalling the apps list: %v", err)
-		return "", err
-	}
-
-	return string(jsonAppList), nil
+	// Call the knative API wrapper
+	return listAllApps(client, ctx)
 }
 
 // Get app by name
@@ -74,21 +61,9 @@ func GetAppByName(kubeconfig string, space string, appName string) (apps_list st
 	// Create an empty context, required for knative APIs
 	ctx := context.Background()
 
-	// Call the knative API to get service by Name
-	appGetByName, err := client.GetService(ctx, appName)
-	if err != nil {
-		zap.S().Errorf("Error while listing app: %v", err)
-		return "", err
-	}
+	// Call the knative API wrapper to get service by Name
+	return getAppByName(client, ctx, appName)
 
-	// Encode the app info in json format
-	jsonApp, err := json.Marshal(appGetByName)
-	if err != nil {
-		zap.S().Errorf("Error while json marshalling the app: %v", err)
-		return "", err
-	}
-
-	return string(jsonApp), nil
 }
 
 func containerOfPodSpec(spec *corev1.PodSpec) *corev1.Container {
@@ -159,18 +134,6 @@ func serviceExists(ctx context.Context, client clientservingv1.KnServingClient, 
 		return false, err
 	}
 	return true, nil
-}
-
-func createAppKnative(
-	ctx context.Context,
-	client clientservingv1.KnServingClient,
-	service *servingv1.Service) (err error) {
-
-	err = client.CreateService(ctx, service)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // handleDockerCfgJSONContent serializes a ~/.docker/config.json file
@@ -338,15 +301,15 @@ func CreateApp(
 	}
 
 	// If container secret info exists, create a secret in the k8s cluster.
-	if ((username != "") &&
-	    (password != "")) {
+	if (username != "") &&
+		(password != "") {
 		err = injectContainerImageSecrets(kubeconfig, space, secretname, username, password, image)
 		if err != nil {
 			zap.S().Errorf("Error while injecting the secrets object: %v", err)
 		}
 	} else {
-           // Secret name has no value where username and password don't exist.
-	   secretname = ""
+		// Secret name has no value where username and password don't exist.
+		secretname = ""
 	}
 
 	service, err := constructService(appname, space, image, env, port, secretname)
@@ -397,14 +360,8 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	*/
 	var timeout = time.Duration(0)
 
-	// Call the knative API to delete service by Name
-	errdelete := client.DeleteService(ctx, appName, timeout)
-	if errdelete != nil {
-		zap.S().Errorf("Error while deleting app: %v", errdelete)
-		return err
-	}
-
-	return nil
+	// Call the knative API wrapper to delete service by Name
+	return deleteApp(client, ctx, appName, timeout)
 }
 
 // Check if the apps deployed exceeds maxAppDeployCount.
