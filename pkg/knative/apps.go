@@ -12,6 +12,7 @@ import (
 	"github.com/platform9/app-controller/pkg/options"
 	"github.com/platform9/app-controller/pkg/util"
 	"go.uber.org/zap"
+	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +22,8 @@ import (
 	"knative.dev/client/pkg/kn/commands"
 	servinglib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -81,11 +84,14 @@ func constructService(
 	env []corev1.EnvVar,
 	port string,
 	secretname string) (service servingv1.Service, err error) {
-
 	service = servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			// Annotations: map[string]string{
+			// 	serving.CreatorAnnotation: "test@platform9.io",
+			// 	serving.UpdaterAnnotation: "test@platform9.io",
+			// },
 		},
 	}
 
@@ -285,8 +291,10 @@ func CreateApp(
 		return err
 	}
 
-	// Create an empty context, required for knative APIs
-	ctx := context.Background()
+	// Create a context with userinfo, required for knative APIs
+	ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+		Username: "test@platform9.io",
+	})
 
 	// Check for maximum apps deploy limit.
 	stopDeploy, err := maxAppDeployed(kubeconfig, space)
@@ -331,6 +339,20 @@ func CreateApp(
 		return fmt.Errorf("Service already exists")
 	} else {
 		err = createAppKnative(ctx, client, &service)
+		// New service metadata required.
+		newService := servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: "test@platform9.io",
+					serving.UpdaterAnnotation: "test@platform9.io",
+				},
+			},
+		}
+		// Set the userinfo
+		serving.SetUserInfo(ctx, service.ObjectMeta, newService.ObjectMeta, service)
+		if ui := apis.GetUserInfo(ctx); ui != nil {
+			zap.S().Info("Getuserinfo: %v", ui)
+		}
 	}
 	if err != nil {
 		return err
