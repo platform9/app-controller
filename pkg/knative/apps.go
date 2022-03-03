@@ -192,9 +192,14 @@ func extractRegistryURL(url string) (containerURL string, err error) {
 
 	if urlList[0] == util.DockerURL {
 		return util.DockerServerURL, nil
-	} else if strings.Contains(urlList[0], util.AWSURL) {
+	}
+	if strings.Contains(urlList[0], util.AWSURL) {
 		return util.HTTPSURL + urlList[0], nil
-	} else if strings.Contains(urlList[0], util.GCRURL) {
+	}
+	if strings.Contains(urlList[0], util.GCRURL) {
+		return util.HTTPSURL + urlList[0], nil
+	}
+	if strings.Contains(urlList[0], util.ACRURL) {
 		return util.HTTPSURL + urlList[0], nil
 	}
 

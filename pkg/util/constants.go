@@ -48,6 +48,7 @@ const (
 	DockerServerURL = "https://index.docker.io/v1/"
 	AWSURL          = "amazonaws"
 	GCRURL          = "gcr.io"
+	ACRURL          = "azurecr.io"
 
 	// app-controller version
 	Version = "app-controller version: v1.1"
