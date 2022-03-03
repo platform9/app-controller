@@ -367,7 +367,7 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
                 return err
         }
 
-	err = deleteSecret(kubeconfig, appName, space)
+	err = deleteSecret(kubeconfig, space, appName)
 	if err != nil {
 		//Not returning error as it's not needed to show this to the user
                 zap.S().Debugf("Error while deleting the app secret: %v", err)
@@ -396,6 +396,8 @@ func deleteSecret(kubeconfig string, space string, appName string) error {
         deleteOptions := metav1.DeleteOptions{}
         // Fire secret deletion CoreV1 API.
 	//Secret name is same as the app name.
+	//This will fail for public registry as secret won't be present.
+	//But this can be treated as no-op.
         err = clientset.CoreV1().Secrets(space).Delete(context.TODO(), appName, deleteOptions)
         if err != nil {
 		zap.S().Debugf("Error deleting the secret: %v", err)
