@@ -361,7 +361,48 @@ func DeleteApp(kubeconfig string, space string, appName string) error {
 	var timeout = time.Duration(0)
 
 	// Call the knative API wrapper to delete service by Name
-	return deleteApp(client, ctx, appName, timeout)
+	err = deleteApp(client, ctx, appName, timeout)
+	if err != nil {
+                zap.S().Errorf("Error while deleting the app: %v", err)
+                return err
+        }
+
+	err = deleteSecret(kubeconfig, appName, space)
+	if err != nil {
+		//Not returning error as it's not needed to show this to the user
+                zap.S().Debugf("Error while deleting the app secret: %v", err)
+        }
+
+	return nil
+}
+
+//Delete the secret associated with the app being deleted
+//in case the app is deployed from private registry
+func deleteSecret(kubeconfig string, space string, appName string) error {
+	// create config structure instance from the kubeconfig
+        config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+        if err != nil {
+                zap.S().Debugf("Error creating config object from kubeconfig: %v ", err)
+                return err
+        }
+
+        // create clientset from the kubeconfig in-memory structure
+        clientset, err := kubernetes.NewForConfig(config)
+        if err != nil {
+                zap.S().Debugf("Error creating clientset: %v ", err)
+                return err
+        }
+
+        deleteOptions := metav1.DeleteOptions{}
+        // Fire secret deletion CoreV1 API.
+	//Secret name is same as the app name.
+        err = clientset.CoreV1().Secrets(space).Delete(context.TODO(), appName, deleteOptions)
+        if err != nil {
+		zap.S().Debugf("Error deleting the secret: %v", err)
+                return err
+        }
+
+	return nil
 }
 
 // Check if the apps deployed exceeds maxAppDeployCount.
